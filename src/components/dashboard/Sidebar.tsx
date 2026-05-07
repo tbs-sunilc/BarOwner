@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
+import { clearActiveBarId } from '@/lib/active-bar';
 
 const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?: boolean; group: 'core' | 'growth' | 'account' }> = [
   { href: '/',             icon: <IconDashboard />,   label: 'Dashboard', exact: true, group: 'core' },
@@ -140,7 +141,13 @@ export function Sidebar({ barName }: Props) {
             <button
               onClick={() => {
                 window.sessionStorage.removeItem('sipsave-barowner-access-token');
+                window.sessionStorage.removeItem('sipsave-barowner-refresh-token');
+                window.sessionStorage.removeItem('sipsave-barowner-token-type');
+                window.sessionStorage.removeItem('sipsave-barowner-access-token-expires-at');
+                window.sessionStorage.removeItem('sipsave-barowner-user');
                 window.sessionStorage.removeItem('sipsave-barowner-email');
+                window.sessionStorage.removeItem('sipsave-barowner-full-name');
+                clearActiveBarId();
                 window.location.href = '/login';
               }}
               className="mt-4 w-full flex items-center justify-between rounded-xl border border-[var(--color-ink-3)] bg-transparent px-3 py-2.5 text-sm font-medium text-[rgb(255_219_214)] hover:border-[var(--color-accent)] hover:bg-[var(--color-ink-3)] cursor-pointer"

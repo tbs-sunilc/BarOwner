@@ -47,6 +47,68 @@ function safeParse(s: string): unknown {
 }
 
 // ---------------------------------------------------------------------------
+//  Auth endpoints (bar-owner OTP sign-in)
+// ---------------------------------------------------------------------------
+
+export type RegisterOtpPayload = {
+  fullName: string;
+  mobileNumber: string;
+};
+
+export type RegisterOtpResponse = {
+  mobileNumber: string;
+  otpExpiresAtUtc: string;
+  resendCooldownSeconds: number;
+  otpLength: number;
+  lockedUntilUtc: string | null;
+  isExistingAccount: boolean;
+};
+
+export const requestOwnerOtp = (payload: RegisterOtpPayload) =>
+  request<RegisterOtpResponse>('/api/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export type VerifyOtpPayload = {
+  mobileNumber: string;
+  otp: string;
+};
+
+export type AuthTokens = {
+  accessToken: string;
+  accessTokenExpiresAtUtc: string;
+  refreshToken: string;
+  refreshTokenExpiresAtUtc: string;
+  tokenType: string;
+};
+
+export type AuthUser = {
+  id: number;
+  mobileNumber: string;
+  fullName: string | null;
+  email: string | null;
+  profilePhotoUrl: string | null;
+  kycStatus: string | null;
+  kycRejectionReason: string | null;
+  isPermanentlyRejected: boolean;
+  authProvider: string;
+  barId?: number | null;
+};
+
+export type VerifyOtpResponse = {
+  tokens: AuthTokens;
+  user: AuthUser;
+  isNewAccount: boolean;
+};
+
+export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
+  request<VerifyOtpResponse>('/api/v1/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+// ---------------------------------------------------------------------------
 //  Bar registration endpoints
 // ---------------------------------------------------------------------------
 
