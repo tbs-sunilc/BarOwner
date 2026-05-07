@@ -158,6 +158,19 @@ export const submitBarDocuments = (barId: number, payload: SubmitBarDocumentsPay
     body: JSON.stringify(payload),
   });
 
+export type BarDetails = {
+  barId: number;
+  businessName: string;
+  city: string;
+  stateCode: string;
+  isVerified: boolean;
+  isActive: boolean;
+  verificationQueueMessage: string;
+};
+
+export const getBarDetails = () =>
+  request<BarDetails>('/api/v1/bars/details');
+
 // ---------------------------------------------------------------------------
 //  Inventory endpoints (mirrors InventoryItemDto on the server)
 // ---------------------------------------------------------------------------

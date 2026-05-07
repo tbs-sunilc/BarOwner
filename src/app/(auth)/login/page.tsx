@@ -6,12 +6,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { ErrorBanner } from '@/components/ui';
 import {
   ApiError,
+  getBarDetails,
   requestOwnerOtp,
   verifyOwnerOtp,
+  type BarDetails,
   type RegisterOtpResponse,
   type VerifyOtpResponse,
 } from '@/lib/api-client';
-import { setActiveBarId } from '@/lib/active-bar';
+import { clearActiveBarId, setActiveBarDetails, setActiveBarId } from '@/lib/active-bar';
 
 const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
@@ -93,6 +95,21 @@ export default function BarOwnerLoginPage() {
     try {
       const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp });
       persistOwnerSession(response);
+      let bar: BarDetails;
+      try {
+        bar = await getBarDetails();
+      } catch (err) {
+        setError(readApiMessage(err, 'OTP verified, but we could not load your bar details. Please try again.'));
+        return;
+      }
+
+      if (!bar.isVerified || !bar.isActive) {
+        clearActiveBarId();
+        setNotice(getBarAccessMessage(bar));
+        return;
+      }
+
+      persistBarDetails(bar);
       router.replace('/inventory');
     } catch (err) {
       setError(readApiMessage(err, 'Invalid or expired OTP. Please try again.'));
@@ -166,7 +183,7 @@ export default function BarOwnerLoginPage() {
           </div>
 
           {error && <ErrorBanner>{error}</ErrorBanner>}
-          {notice && <NotRegisteredNotice message={notice} />}
+          {notice && <NoticeCard title="Mobile number not registered" message={notice} actionHref="/register" actionText="Register your bar" />}
 
           <button type="submit" disabled={busy || !detailsValid} className="btn btn-primary w-full">
             {busy ? 'Sending OTP...' : 'Send OTP'}
@@ -204,6 +221,7 @@ export default function BarOwnerLoginPage() {
           </div>
 
           {error && <ErrorBanner>{error}</ErrorBanner>}
+          {notice && <NoticeCard title="Bar access pending" message={notice} />}
 
           <button type="submit" disabled={busy || otp.length !== otpLength} className="btn btn-primary w-full">
             {busy ? 'Verifying...' : 'Verify & Continue'}
@@ -240,17 +258,44 @@ function persistOwnerSession(response: VerifyOtpResponse): void {
   if (response.user.barId && response.user.barId > 0) setActiveBarId(response.user.barId);
 }
 
-function NotRegisteredNotice({ message }: { message: string }) {
+function persistBarDetails(bar: BarDetails): void {
+  setActiveBarDetails(bar);
+}
+
+function getBarAccessMessage(bar: BarDetails): string {
+  const status = bar.verificationQueueMessage?.trim();
+  if (!bar.isVerified) {
+    return status || `${bar.businessName} is not verified yet. Please wait for verification before opening the owner dashboard.`;
+  }
+  if (!bar.isActive) {
+    return status || `${bar.businessName} is not active right now. Please contact support to activate your bar.`;
+  }
+  return status || `${bar.businessName} is not ready for dashboard access yet.`;
+}
+
+function NoticeCard({
+  title,
+  message,
+  actionHref,
+  actionText,
+}: {
+  title: string;
+  message: string;
+  actionHref?: string;
+  actionText?: string;
+}) {
   return (
     <div
       role="alertdialog"
       className="rounded-lg border border-[color:rgb(184_134_11/0.35)] bg-accent-tint px-4 py-3 text-sm text-accent-lo"
     >
-      <p className="font-semibold text-ink">Mobile number not registered</p>
+      <p className="font-semibold text-ink">{title}</p>
       <p className="mt-1">{message}</p>
-      <Link href="/register" className="btn btn-ghost btn-sm mt-3">
-        Register your bar
-      </Link>
+      {actionHref && actionText && (
+        <Link href={actionHref} className="btn btn-ghost btn-sm mt-3">
+          {actionText}
+        </Link>
+      )}
     </div>
   );
 }

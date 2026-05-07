@@ -7,8 +7,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
-import { clearActiveBarId } from '@/lib/active-bar';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { clearActiveBarId, getActiveBarDetails } from '@/lib/active-bar';
 
 const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?: boolean; group: 'core' | 'growth' | 'account' }> = [
   { href: '/',             icon: <IconDashboard />,   label: 'Dashboard', exact: true, group: 'core' },
@@ -27,11 +27,18 @@ type Props = { barName: string };
 export function Sidebar({ barName }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [displayBarName, setDisplayBarName] = useState(barName);
+  const initials = useMemo(() => getInitials(displayBarName), [displayBarName]);
   const groups: Array<{ key: 'core' | 'growth' | 'account'; label: string }> = [
     { key: 'core', label: 'Operations' },
     { key: 'growth', label: 'Growth' },
     { key: 'account', label: 'Account' },
   ];
+
+  useEffect(() => {
+    const details = getActiveBarDetails();
+    if (details?.businessName) setDisplayBarName(details.businessName);
+  }, []);
 
   return (
     <>
@@ -40,7 +47,7 @@ export function Sidebar({ barName }: Props) {
           <p className="text-sm font-semibold tracking-[0.18em] text-[var(--color-text-soft)] uppercase">
             SipSave
           </p>
-          <p className="text-base font-semibold text-[var(--color-text)]">{barName}</p>
+          <p className="text-base font-semibold text-[var(--color-text)]">{displayBarName}</p>
         </div>
         <button
           type="button"
@@ -78,7 +85,7 @@ export function Sidebar({ barName }: Props) {
               <p className="font-semibold tracking-[0.22em] text-[0.7rem] uppercase text-[rgb(248_243_234_/_0.56)]">
                 SipSave Owner
               </p>
-              <h1 className="truncate text-xl font-semibold text-white">{barName}</h1>
+              <h1 className="truncate text-xl font-semibold text-white">{displayBarName}</h1>
             </div>
           </div>
 
@@ -128,10 +135,10 @@ export function Sidebar({ barName }: Props) {
           <div className="rounded-2xl border border-[var(--color-ink-3)] bg-[var(--color-ink-2)] p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-ink-3)] text-sm font-semibold text-[var(--color-accent)]">
-                SL
+                {initials}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{barName}</p>
+                <p className="truncate text-sm font-semibold text-white">{displayBarName}</p>
                 <p className="text-[0.68rem] uppercase tracking-[0.18em] text-[rgb(248_243_234_/_0.46)]">
                   Owner Access
                 </p>
@@ -160,6 +167,12 @@ export function Sidebar({ barName }: Props) {
       </aside>
     </>
   );
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'SB';
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
 }
 
 function BaseIcon({ children }: { children: ReactNode }) {
