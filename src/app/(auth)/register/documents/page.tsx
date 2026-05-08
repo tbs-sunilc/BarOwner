@@ -76,10 +76,10 @@ export default function DocumentsPage() {
     try {
       const created = await registerBar(buildRegisterPayload(step1, gstin, fssaiNumber, liquorNumber));
       await submitBarDocuments(created.barId, {
-        liquorLicenceDocUrl: placeholderUrl(created.barId, 'liquor', docs.liquor!),
-        fssaiDocUrl: placeholderUrl(created.barId, 'fssai', docs.fssai!),
-        gstinDocUrl: placeholderUrl(created.barId, 'gstin', docs.gstin!),
-        photoGalleryUrls: docs.photos.map((p, i) => placeholderUrl(created.barId, `photo-${i + 1}`, p)),
+        liquorLicenceDocKey: placeholderUrl(created.barId, 'liquor', docs.liquor!),
+        fssaiDocKey: placeholderUrl(created.barId, 'fssai', docs.fssai!),
+        gstinDocKey: placeholderUrl(created.barId, 'gstin', docs.gstin!),
+        photoGalleryKeys: docs.photos.map((p, i) => placeholderUrl(created.barId, `photo-${i + 1}`, p)),
       });
       clearRegistrationStep1();
       router.replace(`/register/success?barId=${created.barId}`);
@@ -175,6 +175,8 @@ function placeholderUrl(barId: number, slot: string, file: File): string {
 }
 
 function normalizeIndianMobile(mobile: string): string {
-  const digits = mobile.replace(/\D/g, '');
-  return digits.startsWith('91') ? `+${digits}` : `+91${digits}`;
+    return mobile.replace(/\D/g, '');
+
+  //const digits = mobile.replace(/\D/g, '');
+ // return digits.startsWith('91') ? `+${digits}` : `+91${digits}`;
 }

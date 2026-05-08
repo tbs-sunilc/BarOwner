@@ -145,10 +145,10 @@ export const registerBar = (payload: RegisterBarPayload) =>
   });
 
 export type SubmitBarDocumentsPayload = {
-  gstinDocUrl: string;
-  fssaiDocUrl: string;
-  liquorLicenceDocUrl: string;
-  photoGalleryUrls?: string[];
+  gstinDocKey: string;
+  fssaiDocKey: string;
+  liquorLicenceDocKey: string;
+  photoGalleryKeys?: string[];
   logoUrl?: string | null;
 };
 
