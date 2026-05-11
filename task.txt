@@ -1,0 +1,29 @@
+No, I don’t see any geolocation/geocoding API in SipSave.API that converts an address into coordinates.
+What exists now:
+POST /api/v1/bars accepts latitude and longitude in the request.
+BarService.RegisterAsync simply saves request.Latitude and request.Longitude.
+BarRepository.AddAsync inserts those values into dbo.Bars.
+Discovery APIs use stored coordinates for distance/filtering.
+What does not exist:
+No Google Maps / Mapbox / Nominatim / LocationIQ geocoding service.
+No AddHttpClient registration for a geocoding provider.
+No backend logic that builds an address from AddressLine1, City, Pincode, etc. and fetches coordinates.
+So currently the frontend/client must send coordinates during bar registration. If the address is entered without lat/long, the backend will save NULL for both.
+5:21 PM
+ 
+Yes, for POST /api/v1/bars, latitude/longitude are already wired for saving.
+Current flow:
+Request accepts them: BarRegistrationRequest.cs (line 46)
+decimal? Latitude
+decimal? Longitude
+Service maps them into the Bar entity: BarService.cs (line 68)
+Repository inserts them into dbo.Bars: BarRepository.cs (line 31)
+So your register payload can include:
+json
+ 
+{"businessName": "Test Bar","latitude": 12.9716,"longitude": 77.5946 }
+Important bit: the register response does not return latitude/longitude right now. BarRegistrationResponse only returns barId, businessName, city, stateCode, isVerified, isActive, and message.
+But lat/long are returned later in:
+GET /api/v1/bars discovery list
+GET /api/v1/bars/{id} profile
+One catch: profile/discovery only show public bars after verification/activation logic, so immediately after registration you may not see it from public APIs.

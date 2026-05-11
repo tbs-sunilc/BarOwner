@@ -121,6 +121,8 @@ export type RegisterBarPayload = {
   city: string;
   stateCode: string;
   pincode: string;
+  latitude?: number | null;
+  longitude?: number | null;
   gstin: string;
   fssaiLicenceNumber: string;
   liquorLicenceNumber: string;

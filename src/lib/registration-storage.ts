@@ -16,6 +16,8 @@ export type BarRegistrationStep1 = {
   city: string;
   stateCode: string;
   pincode: string;
+  latitude: number | null;
+  longitude: number | null;
   openingTime: string;
   closingTime: string;
   ambianceTags: string[];

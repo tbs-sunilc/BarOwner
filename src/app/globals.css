@@ -356,7 +356,6 @@ a, button, input, select, textarea {
 
   .auth-fit {
     width: 100%;
-    max-height: calc(100vh - 2rem);
   }
 
   .auth-compact .input,

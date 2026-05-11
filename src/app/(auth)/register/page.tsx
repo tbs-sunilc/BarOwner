@@ -34,6 +34,8 @@ const EMPTY: BarRegistrationStep1 = {
   city: '',
   stateCode: '',
   pincode: '',
+  latitude: null,
+  longitude: null,
   openingTime: '18:00',
   closingTime: '01:00',
   ambianceTags: ['Rooftop'],
@@ -48,11 +50,13 @@ export default function RegisterPage() {
   const [otpMeta, setOtpMeta] = useState<RegisterOtpResponse | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const restored = loadRegistrationStep1();
-    if (restored) setForm(restored);
+    if (restored) setForm({ ...EMPTY, ...restored });
   }, []);
 
   useEffect(() => {
@@ -79,6 +83,36 @@ export default function RegisterPage() {
         ? f.ambianceTags.filter((t) => t !== tag)
         : [...f.ambianceTags, tag],
     }));
+  }
+
+  function captureCurrentLocation() {
+    setError(null);
+    setLocationMessage(null);
+
+    if (!navigator.geolocation) {
+      setLocationMessage('Location is not available in this browser.');
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        update('latitude', Number(position.coords.latitude.toFixed(6)));
+        update('longitude', Number(position.coords.longitude.toFixed(6)));
+        setTouched((t) => ({ ...t, latitude: true, longitude: true }));
+        setLocationMessage('Location captured for this bar.');
+        setLocating(false);
+      },
+      (geoError) => {
+        const message =
+          geoError.code === geoError.PERMISSION_DENIED
+            ? 'Allow location access to continue with bar registration.'
+            : 'Could not read your current location. Please try again.';
+        setLocationMessage(message);
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+    );
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -222,6 +256,27 @@ export default function RegisterPage() {
             </Field>
           </div>
 
+          <div className="mt-2.5 rounded-md border border-hairline bg-ivory px-2.5 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="field-label">Bar Location <span className="text-[color:var(--color-danger)]">*</span></span>
+                <p className="text-xs text-muted">
+                  {form.latitude !== null && form.longitude !== null
+                    ? `${form.latitude}, ${form.longitude}`
+                    : 'Capture coordinates before verification.'}
+                </p>
+              </div>
+              <button type="button" onClick={captureCurrentLocation} disabled={locating} className="btn btn-ghost btn-sm">
+                {locating ? 'Locating...' : form.latitude !== null && form.longitude !== null ? 'Update Location' : 'Use Current Location'}
+              </button>
+            </div>
+            {(showError('latitude') || locationMessage) && (
+              <p className={`mt-1 text-xs ${showError('latitude') ? 'text-[color:var(--color-danger)]' : 'text-muted'}`}>
+                {showError('latitude') ?? locationMessage}
+              </p>
+            )}
+          </div>
+
           <div className="mt-2.5 grid grid-cols-1 gap-2.5 md:grid-cols-2">
             <Field label="Opening Time" required>
               <input className="input" type="time" value={form.openingTime} onChange={(e) => update('openingTime', e.target.value)} />
@@ -326,6 +381,7 @@ function validate(form: BarRegistrationStep1): Partial<Record<keyof BarRegistrat
   if (form.city.trim().length === 0) errors.city = 'City is required.';
   if (form.stateCode === '') errors.stateCode = 'State is required.';
   if (!PINCODE_REGEX.test(form.pincode)) errors.pincode = 'Pincode must be 6 digits.';
+  if (form.latitude === null || form.longitude === null) errors.latitude = 'Capture the bar location.';
   return errors;
 }
 

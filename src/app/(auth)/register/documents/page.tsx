@@ -167,7 +167,7 @@ function RegulatoryNumberField({ label, placeholder, value, onChange, valid, max
 function buildRegisterPayload(step1: BarRegistrationStep1, gstin: string, fssai: string, liquor: string): RegisterBarPayload {
   const hours: Record<string, { open: string; close: string }> = {};
   for (const d of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) hours[d] = { open: step1.openingTime, close: step1.closingTime };
-  return { businessName: step1.businessName, contactMobile: normalizeIndianMobile(step1.mobileNumber), contactEmail: step1.email, addressLine1: step1.addressLine1, city: step1.city, stateCode: step1.stateCode, pincode: step1.pincode, gstin, fssaiLicenceNumber: fssai, liquorLicenceNumber: liquor, ambianceTags: step1.ambianceTags, openingHoursJson: JSON.stringify(hours) };
+  return { businessName: step1.businessName, contactMobile: normalizeIndianMobile(step1.mobileNumber), contactEmail: step1.email, addressLine1: step1.addressLine1, city: step1.city, stateCode: step1.stateCode, pincode: step1.pincode, latitude: step1.latitude, longitude: step1.longitude, gstin, fssaiLicenceNumber: fssai, liquorLicenceNumber: liquor, ambianceTags: step1.ambianceTags, openingHoursJson: JSON.stringify(hours) };
 }
 
 function placeholderUrl(barId: number, slot: string, file: File): string {
