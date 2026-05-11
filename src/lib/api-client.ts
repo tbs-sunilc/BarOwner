@@ -108,6 +108,33 @@ export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
     body: JSON.stringify(payload),
   });
 
+export type SubscriptionPlanDto = {
+  id: number;
+  code?: string | null;
+  name: string;
+  tier?: string | null;
+  price?: string | null;
+  monthlyPriceInPaise?: number | null;
+  annualPriceInPaise?: number | null;
+  trialDays?: number | null;
+  maxStaffAccounts?: number | null;
+  //maxBarTables?: number | null;
+  maxBottleInventoryItems?: number | null;
+  maxActiveOffers?: number | null;
+  includesAdvancedAnalytics?: boolean;
+  includesFeaturedListing?: boolean;
+  includesWhatsappBot?: boolean;
+  monthlyDisable?: boolean;
+  annuallyDisable?: boolean;
+  badge?: string | null;
+  suffix?: string | null;
+  features?: string[] | null;
+  disabledFrom?: number | null;
+};
+
+export const getSubscriptionPlans = () =>
+  request<SubscriptionPlanDto[]>('/api/v1/subscriptions/plans');
+
 // ---------------------------------------------------------------------------
 //  Bar registration endpoints
 // ---------------------------------------------------------------------------
