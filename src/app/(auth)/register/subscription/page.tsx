@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { RegistrationStepper } from '@/components/ui/RegistrationStepper';
-import { ApiError, getSubscriptionPlans, type SubscriptionPlanDto } from '@/lib/api-client';
-/*
-*/
+import { ApiError, getSubscriptionPlans, subscribeToPlan, type SubscriptionPlanDto } from '@/lib/api-client';
+import { getActiveBarId } from '@/lib/active-bar';
+import { clearKycStatus } from '@/lib/kyc-status';
 
 const DEFAULT_PLANS: SubscriptionPlanDto[] = [
   {
@@ -57,6 +57,8 @@ export default function SubscriptionPage() {
   const [selected, setSelected] = useState('Growth');
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   useEffect(() => {
     let canceled = false;
@@ -144,6 +146,42 @@ export default function SubscriptionPage() {
 
   const savingsPercent = calculateSavings();
 
+  const handleSubscribe = async () => {
+    const selectedPlan = effectivePlans.find(plan => plan.name === selected);
+    if (!selectedPlan) {
+      setSubscriptionError('Please select a plan');
+      return;
+    }
+
+    const barId = getActiveBarId();
+    if (!barId) {
+      setSubscriptionError('No active bar found. Please complete registration first.');
+      return;
+    }
+
+    setSubscribing(true);
+    setSubscriptionError(null);
+
+    try {
+      const response = await subscribeToPlan(barId, {
+        planId: selectedPlan.id,
+        billingCycle: billing,
+      });
+
+      // Clear KYC status on successful subscription
+      clearKycStatus();
+
+      // On success, redirect to success page or dashboard
+      console.log('Subscription successful:', response);
+      router.replace('/register/success');
+
+    } catch (err) {
+      setSubscriptionError(err instanceof ApiError ? err.message : 'Failed to subscribe to plan');
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   return (
     <div className="auth-fit auth-compact w-full max-w-5xl">
       <div className="mx-auto max-w-3xl text-center">
@@ -167,6 +205,12 @@ export default function SubscriptionPage() {
       {plansError && (
         <div className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 border border-rose-200">
           {plansError}
+        </div>
+      )}
+
+      {subscriptionError && (
+        <div className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 border border-rose-200">
+          {subscriptionError}
         </div>
       )}
 
@@ -221,8 +265,13 @@ export default function SubscriptionPage() {
       </div>
 
       <div className="mt-4 flex justify-center">
-        <button type="button" onClick={() => router.replace('/login')} className="btn btn-primary">
-          Start 30-Day Free Trial →
+        <button
+          type="button"
+          onClick={handleSubscribe}
+          disabled={subscribing}
+          className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {subscribing ? 'Subscribing...' : 'Start 30-Day Free Trial →'}
         </button>
       </div>
     </div>

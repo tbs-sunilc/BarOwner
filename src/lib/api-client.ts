@@ -135,6 +135,26 @@ export type SubscriptionPlanDto = {
 export const getSubscriptionPlans = () =>
   request<SubscriptionPlanDto[]>('/api/v1/subscriptions/plans');
 
+export type SubscribeToPlanPayload = {
+  planId: number;
+  billingCycle: 'monthly' | 'annual';
+};
+
+export type SubscribeToPlanResponse = {
+  subscriptionId: number;
+  planId: number;
+  billingCycle: string;
+  status: string;
+  trialEndsAtUtc?: string | null;
+  nextBillingDateUtc?: string | null;
+};
+
+export const subscribeToPlan = (barId: number, payload: SubscribeToPlanPayload) =>
+  request<SubscribeToPlanResponse>(`/api/v1/bars/${barId}/subscription`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
 // ---------------------------------------------------------------------------
 //  Bar registration endpoints
 // ---------------------------------------------------------------------------

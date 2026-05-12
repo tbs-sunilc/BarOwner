@@ -6,6 +6,7 @@ import { ErrorBanner } from '@/components/ui';
 import { RegistrationStepper } from '@/components/ui/RegistrationStepper';
 import { ApiError, registerBar, submitBarDocuments, type RegisterBarPayload } from '@/lib/api-client';
 import { clearRegistrationStep1, loadRegistrationStep1, type BarRegistrationStep1 } from '@/lib/registration-storage';
+import { saveKycStatus } from '@/lib/kyc-status';
 
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const FSSAI_REGEX = /^[0-9]{14}$/;
@@ -82,7 +83,12 @@ export default function DocumentsPage() {
         photoGalleryKeys: docs.photos.map((p, i) => placeholderUrl(created.barId, `photo-${i + 1}`, p)),
       });
       clearRegistrationStep1();
-      router.replace(`/register/success?barId=${created.barId}`);
+      // Save KYC status as "under_review"
+      saveKycStatus({
+        status: 'under_review',
+        barId: created.barId,
+      });
+      router.replace('/register/kyc-status');
     } catch (ex) {
       setErrorBanner(ex instanceof ApiError ? ex.message : 'Network error. Please check API/CORS and try again.');
     } finally {

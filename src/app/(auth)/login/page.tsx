@@ -14,6 +14,7 @@ import {
   type VerifyOtpResponse,
 } from '@/lib/api-client';
 import { clearActiveBarId, setActiveBarDetails, setActiveBarId } from '@/lib/active-bar';
+import { saveKycStatus, parseKycStatusFromApi } from '@/lib/kyc-status';
 
 const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
@@ -95,6 +96,16 @@ export default function BarOwnerLoginPage() {
     try {
       const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp });
       persistOwnerSession(response);
+
+      // Check KYC status
+      const kycData = parseKycStatusFromApi(response.user.kycStatus, response.user.kycRejectionReason);
+      if (kycData) {
+        saveKycStatus(kycData);
+        // Redirect to KYC status page (user cannot proceed without KYC approval)
+        router.replace('/register/kyc-status');
+        return;
+      }
+
       let bar: BarDetails;
       try {
         bar = await getBarDetails();
