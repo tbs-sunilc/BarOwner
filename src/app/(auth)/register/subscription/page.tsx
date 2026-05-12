@@ -3,14 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { RegistrationStepper } from '@/components/ui/RegistrationStepper';
-import { ApiError, getSubscriptionPlans, subscribeToPlan, type SubscriptionPlanDto } from '@/lib/api-client';
+import { ApiError, getBarDetails, getSubscriptionPlans, subscribeToPlan, type SubscriptionPlanDto } from '@/lib/api-client';
 import { getActiveBarId } from '@/lib/active-bar';
-import { clearKycStatus } from '@/lib/kyc-status';
+import { clearKycStatus, loadKycStatus } from '@/lib/kyc-status';
 
 const DEFAULT_PLANS: SubscriptionPlanDto[] = [
   {
     id: 1,
-    name: 'Dom',
+    name: 'Starter',
     monthlyPriceInPaise: 299900,
     annualPriceInPaise: 2999000,
     trialDays: 14,
@@ -59,6 +59,8 @@ export default function SubscriptionPage() {
   const [plansError, setPlansError] = useState<string | null>(null);
   const [subscribing, setSubscribing] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [activeBarId, setActiveBarId] = useState<number | null>(() => getActiveBarId() ?? loadKycStatus()?.barId ?? null);
+  const [resolvingBarId, setResolvingBarId] = useState(activeBarId === null);
 
   useEffect(() => {
     let canceled = false;
@@ -81,6 +83,31 @@ export default function SubscriptionPage() {
       canceled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeBarId !== null) {
+      setResolvingBarId(false);
+      return;
+    }
+
+    let canceled = false;
+    setResolvingBarId(true);
+
+    (async () => {
+      try {
+        const bar = await getBarDetails();
+        if (!canceled) setActiveBarId(bar.barId);
+      } catch {
+        // Ignore; error will be surfaced when subscribe is attempted.
+      } finally {
+        if (!canceled) setResolvingBarId(false);
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [activeBarId]);
 
   const effectivePlans = plans.length > 0 ? plans : DEFAULT_PLANS;
 
@@ -153,9 +180,16 @@ export default function SubscriptionPage() {
       return;
     }
 
-    const barId = getActiveBarId();
+    if (resolvingBarId) {
+      setSubscriptionError('Please wait while we locate your active bar account.');
+      return;
+    }
+
+    const barId = activeBarId;
     if (!barId) {
-      setSubscriptionError('No active bar found. Please complete registration first.');
+      setSubscriptionError(
+        'No active bar found. Please complete registration first. If you are here as part of registration, make sure your KYC status is still available.',
+      );
       return;
     }
 
@@ -164,16 +198,16 @@ export default function SubscriptionPage() {
 
     try {
       const response = await subscribeToPlan(barId, {
-        planId: selectedPlan.id,
-        billingCycle: billing,
+        planCode: selectedPlan.code ?? selectedPlan.name,
+        billingCycle: billing === 'monthly' ? 'Monthly' : 'Annual',
       });
 
       // Clear KYC status on successful subscription
       clearKycStatus();
 
-      // On success, redirect to success page or dashboard
+      // On success, redirect directly to the dashboard
       console.log('Subscription successful:', response);
-      router.replace('/register/success');
+      router.replace('/inventory');
 
     } catch (err) {
       setSubscriptionError(err instanceof ApiError ? err.message : 'Failed to subscribe to plan');
@@ -268,7 +302,7 @@ export default function SubscriptionPage() {
         <button
           type="button"
           onClick={handleSubscribe}
-          disabled={subscribing}
+          disabled={subscribing || resolvingBarId}
           className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {subscribing ? 'Subscribing...' : 'Start 30-Day Free Trial →'}

@@ -7,6 +7,7 @@ import { ErrorBanner } from '@/components/ui';
 import {
   ApiError,
   getBarDetails,
+  getDashboard,
   requestOwnerOtp,
   verifyOwnerOtp,
   type BarDetails,
@@ -101,7 +102,18 @@ export default function BarOwnerLoginPage() {
       const kycData = parseKycStatusFromApi(response.user.kycStatus, response.user.kycRejectionReason);
       if (kycData) {
         saveKycStatus(kycData);
-        // Redirect to KYC status page (user cannot proceed without KYC approval)
+        try {
+          const bar = await getBarDetails();
+          persistBarDetails(bar);
+          const dashboard = await getDashboard(bar.barId);
+          if (dashboard.subscription) {
+            router.replace('/inventory');
+            return;
+          }
+        } catch {
+          // Bar or dashboard details may not be available yet; fall back to KYC status.
+        }
+        // Redirect to KYC status page (user cannot proceed without KYC approval and subscription)
         router.replace('/register/kyc-status');
         return;
       }

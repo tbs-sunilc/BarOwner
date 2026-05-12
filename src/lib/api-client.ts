@@ -136,8 +136,8 @@ export const getSubscriptionPlans = () =>
   request<SubscriptionPlanDto[]>('/api/v1/subscriptions/plans');
 
 export type SubscribeToPlanPayload = {
-  planId: number;
-  billingCycle: 'monthly' | 'annual';
+  planCode: string;
+  billingCycle: 'Monthly' | 'Annual';
 };
 
 export type SubscribeToPlanResponse = {

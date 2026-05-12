@@ -1,0 +1,26 @@
+so we do like this इसका कारण
+30-Day Free Trial → button सिर्फ UI/label है, मतलब ये workflow है कि:
+
+यूजर एक plan चुनता है
+उसके बाद subscription activate होता है
+पहले 30 दिन में payment नहीं लिया जाता — यह एक trial period होता है
+क्यों जरूरी दिखाया गया है
+Business ने plan activation के साथ एक free trial offer किया है
+इससे user को features try करने का time मिलता है
+frontend इस flow को उसी तरीके से दिखाता है
+technical point
+अगर backend में trial logic नहीं है, तो button label सिर्फ text होगा।
+लेकिन अगर backend subscription API response में trialEndsAtUtc देता है, तो यह सच में trial period को represent करता है।
+
+short answer
+30 days free trial जरूरी इसलिए दिख रहा है क्योंकि product flow में plan select करने के बाद trial शुरू होना तय किया गया है। अगर तुम्हें यह अनचाहा लगे, तो label change करो या backend flow से trial हटाओ।
+ but it is not my functionality my sinior told me jo plan select kare uski entry pad jani chahiye and deshoard pe register ho jan achiye and uske subscription me vo plan batana chahiye jo select kare uski entry pad ni chahiye all time 30 day free trial karana jaruri nahi he 
+
+
+
+->2 is me isme user kyc and bar registertion kyc  dono deffernrt thing he okay if user kyc approved and user login to kyc status page pe batana chahiye ki user kyc is done isf you to register your bar so click button and do that process ye hona chahiye vo subscription vale page tak nahi jana chahiye bar register nahi hua ho usse pahele
+
+if user kyc is approved bar is approved to subscription choose karne ka option ana chahiye and 3 no process complate ho to direct jo hum kar rahe vo sahi hi he baki ki sab process done hi he hamari 
+
+
+
