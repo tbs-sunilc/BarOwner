@@ -62,6 +62,7 @@ export default function SubscriptionPage() {
   const [activeBarId, setActiveBarId] = useState<number | null>(() => getActiveBarId() ?? loadKycStatus()?.barId ?? null);
   const [resolvingBarId, setResolvingBarId] = useState(activeBarId === null);
 
+  // Load subscription plans
   useEffect(() => {
     let canceled = false;
 
@@ -84,6 +85,7 @@ export default function SubscriptionPage() {
     };
   }, []);
 
+  // Resolve bar ID if not found
   useEffect(() => {
     if (activeBarId !== null) {
       setResolvingBarId(false);
@@ -97,8 +99,16 @@ export default function SubscriptionPage() {
       try {
         const bar = await getBarDetails();
         if (!canceled) setActiveBarId(bar.barId);
-      } catch {
-        // Ignore; error will be surfaced when subscribe is attempted.
+      } catch (err) {
+        // Bar not found (204 No Content) - check if user KYC is approved
+        if (!canceled) {
+          const kycData = loadKycStatus();
+          if (kycData && kycData.status === 'user_approved') {
+            // User approved but no bar - redirect to KYC status page
+            router.replace('/register/kyc-status');
+            return;
+          }
+        }
       } finally {
         if (!canceled) setResolvingBarId(false);
       }
@@ -107,7 +117,7 @@ export default function SubscriptionPage() {
     return () => {
       canceled = true;
     };
-  }, [activeBarId]);
+  }, [activeBarId, router]);
 
   const effectivePlans = plans.length > 0 ? plans : DEFAULT_PLANS;
 
@@ -126,9 +136,6 @@ export default function SubscriptionPage() {
     if (typeof plan.maxBottleInventoryItems === 'number') {
       features.push(`Up to ${plan.maxBottleInventoryItems} inventory items`);
     }
-   /* if (type plan.maxBarTables === 'number') {
-      features.push(`Up to ${plan.maxBarTables} bar tables`);
-    }*/
     if (typeof plan.maxActiveOffers === 'number') {
       features.push(`Up to ${plan.maxActiveOffers} offers`);
     }
@@ -148,12 +155,11 @@ export default function SubscriptionPage() {
     return features;
   };
 
-  // Calculate savings percentage for annual billing
   const calculateSavings = () => {
     const plansWithPrices = effectivePlans.filter(
       (p) => p.monthlyPriceInPaise && p.annualPriceInPaise,
     );
-    if (plansWithPrices.length === 0) return 16; // fallback
+    if (plansWithPrices.length === 0) return 16;
 
     const totalMonthly = plansWithPrices.reduce(
       (sum, p) => sum + (p.monthlyPriceInPaise || 0),
@@ -173,13 +179,7 @@ export default function SubscriptionPage() {
 
   const savingsPercent = calculateSavings();
 
-  const handleSubscribe = async () => {
-    const selectedPlan = effectivePlans.find(plan => plan.name === selected);
-    if (!selectedPlan) {
-      setSubscriptionError('Please select a plan');
-      return;
-    }
-
+  const performSubscription = async (plan: SubscriptionPlanDto) => {
     if (resolvingBarId) {
       setSubscriptionError('Please wait while we locate your active bar account.');
       return;
@@ -198,14 +198,12 @@ export default function SubscriptionPage() {
 
     try {
       const response = await subscribeToPlan(barId, {
-        planCode: selectedPlan.code ?? selectedPlan.name,
+        planCode: plan.code ?? plan.name,
         billingCycle: billing === 'monthly' ? 'Monthly' : 'Annual',
       });
 
-      // Clear KYC status on successful subscription
       clearKycStatus();
 
-      // On success, redirect directly to the dashboard
       console.log('Subscription successful:', response);
       router.replace('/inventory');
 
@@ -214,6 +212,19 @@ export default function SubscriptionPage() {
     } finally {
       setSubscribing(false);
     }
+  };
+
+  const handleSubscribe = async () => {
+    const selectedPlan = effectivePlans.find(plan => plan.name === selected);
+    if (!selectedPlan) {
+      setSubscriptionError('Please select a plan');
+      return;
+    }
+    await performSubscription(selectedPlan);
+  };
+
+  const handleDirectSubscribe = async (plan: SubscriptionPlanDto) => {
+    await performSubscription(plan);
   };
 
   return (
@@ -269,8 +280,11 @@ export default function SubscriptionPage() {
               <button
                 key={plan.name}
                 type="button"
-                onClick={() => setSelected(plan.name)}
-                disabled={isDisabled}
+                onClick={() => {
+                  setSelected(plan.name);
+                  handleDirectSubscribe(plan);
+                }}
+                disabled={isDisabled || subscribing}
                 className={`card-raised p-3.5 text-left ${active ? 'border-accent shadow-[var(--shadow-md)]' : 'hover:border-accent'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className="mb-3 text-center">

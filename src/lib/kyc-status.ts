@@ -1,28 +1,23 @@
-/**
- * Stores and retrieves KYC verification status for the bar owner.
- * Used to persist KYC state across sessions.
- */
+const STORAGE_KEY = 'sipsave-kyc-status';
 
-export type KycStatusType = 'under_review' | 'approved' | 'rejected';
+export type KycStatus = 'under_review' | 'approved' | 'rejected' | 'user_approved';
 
 export type KycStatusData = {
-  status: KycStatusType;
-  rejectionReason?: string;
-  userId?: number;
+  status: KycStatus;
   barId?: number;
-  createdAt?: string;
+  rejectionReason?: string;
+  timestamp?: string;
 };
-
-const KYC_STATUS_STORAGE_KEY = 'sipsave-barowner-kyc-status';
 
 export function saveKycStatus(data: KycStatusData): void {
   if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(KYC_STATUS_STORAGE_KEY, JSON.stringify(data));
+  const payload = { ...data, timestamp: new Date().toISOString() };
+  window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
 
 export function loadKycStatus(): KycStatusData | null {
   if (typeof window === 'undefined') return null;
-  const raw = window.sessionStorage.getItem(KYC_STATUS_STORAGE_KEY);
+  const raw = window.sessionStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as KycStatusData;
@@ -33,29 +28,40 @@ export function loadKycStatus(): KycStatusData | null {
 
 export function clearKycStatus(): void {
   if (typeof window === 'undefined') return;
-  window.sessionStorage.removeItem(KYC_STATUS_STORAGE_KEY);
+  window.sessionStorage.removeItem(STORAGE_KEY);
 }
 
-/**
- * Parse the KYC status from the AuthUser response.
- * Maps API status values to our internal enum.
- */
 export function parseKycStatusFromApi(
-  apiStatus: string | null,
-  rejectionReason: string | null
+  kycStatus: string | null | undefined,
+  rejectionReason?: string | null,
 ): KycStatusData | null {
-  if (!apiStatus) return null;
+  if (!kycStatus) return null;
 
-  const status = apiStatus.toLowerCase();
-  
-  if (status === 'approved' || status === 'verified') {
-    return { status: 'approved' };
-  } else if (status === 'rejected' || status === 'permanently_rejected') {
+  const normalized = kycStatus.toLowerCase();
+
+  if (normalized.includes('user_approved') || normalized === 'user_approved') {
+    return {
+      status: 'user_approved',
+      rejectionReason: rejectionReason || undefined,
+    };
+  }
+
+  if (normalized.includes('reject') || normalized.includes('failed')) {
     return {
       status: 'rejected',
-      rejectionReason: rejectionReason || 'Your documents did not meet our verification requirements.',
+      rejectionReason: rejectionReason || undefined,
     };
-  } else if (status === 'under_review' || status === 'pending') {
+  }
+
+  if (normalized.includes('approved') || normalized.includes('verified')) {
+    return { status: 'approved' };
+  }
+
+  if (
+    normalized.includes('pending') ||
+    normalized.includes('review') ||
+    normalized.includes('submitted')
+  ) {
     return { status: 'under_review' };
   }
 
