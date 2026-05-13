@@ -282,7 +282,6 @@ export default function SubscriptionPage() {
                 type="button"
                 onClick={() => {
                   setSelected(plan.name);
-                  handleDirectSubscribe(plan);
                 }}
                 disabled={isDisabled || subscribing}
                 className={`card-raised p-3.5 text-left ${active ? 'border-accent shadow-[var(--shadow-md)]' : 'hover:border-accent'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}

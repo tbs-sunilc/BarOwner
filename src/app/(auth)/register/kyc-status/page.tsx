@@ -181,8 +181,14 @@ export default function KycStatusPage() {
           setIsUserOnly(false);
           try {
             const dashboard = await getDashboard(bar.barId);
+            console.log('Dashboard:', dashboard);
             if (dashboard.subscription) {
               setHasSubscription(true);
+              const subStatus = dashboard.subscription.status;
+              if (bar.isVerified && (bar.isActive || subStatus === 'Active' || subStatus === 'Trial')) {
+                router.replace('/inventory');
+                return;
+              }
             }
           } catch (dashErr) {
             console.log('Dashboard/Subscription check failed:', dashErr);
@@ -352,11 +358,37 @@ export default function KycStatusPage() {
             Back to Login
           </button>
         </>
+      ) : barDetails ? (
+        <>
+          <div className="mb-3 text-4xl" aria-hidden="true">🏢⏳</div>
+          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
+            Bar Registration Pending
+          </p>
+          <h1 className="mt-1 font-display text-3xl leading-tight text-ink">
+            {barDetails.isVerified ? 'Awaiting Activation' : 'Bar Under Review'}
+          </h1>
+          <span className="gold-rule mb-2 mt-2" aria-hidden="true" />
+          <p className="text-sm leading-relaxed text-muted">
+            {barDetails.verificationQueueMessage || (
+              barDetails.isVerified
+                ? "Your bar is verified but not yet active. Please wait for activation or contact support."
+                : "Your bar registration is currently being processed. We'll notify you once it's verified."
+            )}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => router.push('/login')}
+            className="btn btn-primary mt-6 w-full"
+          >
+            Back to Login
+          </button>
+        </>
       ) : (
         <>
           <div className="mb-3 text-4xl" aria-hidden="true">✅</div>
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
-           User Kyc Verification complete
+            User Kyc Verification complete
           </p>
           <h1 className="mt-1 font-display text-3xl leading-tight text-ink">
             Account Approved!
@@ -371,7 +403,7 @@ export default function KycStatusPage() {
             onClick={() => router.push('/register')}
             className="btn btn-primary mt-6 w-full"
           >
-            Regiseter your bar first
+            Register your bar first
           </button>
         </>
       )}
