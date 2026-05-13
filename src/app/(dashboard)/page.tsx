@@ -7,6 +7,7 @@ import {
   ApiError,
   getDashboard,
   getBarDetails,
+  downloadRevenueExport,
   type DashboardDto,
 } from '@/lib/api-client';
 import Link from 'next/link';
@@ -14,7 +15,11 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardDto | null>(null);
+  const [barId, setBarId] = useState<number | null>(null);
+  const [barName, setBarName] = useState('');
+  const [ownerName, setOwnerName] = useState('Owner');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,12 +32,13 @@ export default function DashboardPage() {
       setError(null);
 
       // 1. Get Bar Details (Token based)
-      // This is more reliable than sessionStorage which might be cleared
       let bar;
       try {
         bar = await getBarDetails();
         if (bar) {
-          setActiveBarDetails(bar); // Keep sync with storage
+          setBarId(bar.barId);
+          setBarName(bar.businessName);
+          setActiveBarDetails(bar);
         }
       } catch (barErr) {
         console.error('Failed to fetch bar details:', barErr);
@@ -40,9 +46,13 @@ export default function DashboardPage() {
           router.replace('/login');
           return;
         }
-        // If 204 or error, maybe they need registration
         router.replace('/register/kyc-status');
         return;
+      }
+
+      if (typeof window !== 'undefined') {
+        const storedName = window.sessionStorage.getItem('sipsave-barowner-full-name');
+        if (storedName) setOwnerName(storedName);
       }
 
       if (!bar) {
@@ -62,6 +72,19 @@ export default function DashboardPage() {
       setError(err instanceof ApiError ? err.message : 'Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleExport(format: 'pdf' | 'csv') {
+    if (!barId) return;
+    try {
+      setExporting(true);
+      await downloadRevenueExport(barId, format, 'ThisMonth');
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export report. Please try again later.');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -92,6 +115,34 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pb-12">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-ink">Dashboard</h1>
+          <p className="text-sm text-muted mt-1">Welcome back, {ownerName} · {barName}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 text-[11px] font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Subscription Active
+          </div>
+          <button 
+            onClick={() => alert('View Bar QR Codes feature coming soon')}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-lg shadow-sm text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <IconQrCode className="h-4 w-4 text-slate-500" />
+            View Bar QR Codes
+          </button>
+          <Link 
+            href="/inventory/add"
+            className="flex items-center gap-2 px-4 py-2 bg-[#5e5ce6] hover:bg-[#4a48c9] text-white rounded-lg shadow-sm text-[11px] font-bold transition-colors"
+          >
+            <IconPlus className="h-4 w-4" />
+            Add Bottle
+          </Link>
+        </div>
+      </div>
+
       {/* Subscription Alert */}
       {subscription?.isFailing && (
         <div className="reveal flex items-center justify-between rounded-xl border border-warning/20 bg-warning-tint p-4 text-warning">
@@ -153,8 +204,20 @@ export default function DashboardPage() {
                 <h3 className="text-lg font-bold text-ink">Wallet Revenue — Last 7 Days</h3>
               </div>
               <div className="flex gap-2">
-                <button className="btn btn-sm btn-secondary bg-ivory-2 border-none text-[11px] px-3">Export PDF</button>
-                <button className="btn btn-sm btn-secondary bg-ivory-2 border-none text-[11px] px-3">Export Excel</button>
+                <button 
+                  disabled={exporting}
+                  onClick={() => handleExport('pdf')}
+                  className="btn btn-sm btn-secondary bg-[#f3f4f6] border-none text-[11px] font-bold text-slate-600 px-3 hover:bg-slate-200"
+                >
+                  {exporting ? '...' : 'Export PDF'}
+                </button>
+                <button 
+                  disabled={exporting}
+                  onClick={() => handleExport('csv')}
+                  className="btn btn-sm btn-secondary bg-[#f3f4f6] border-none text-[11px] font-bold text-slate-600 px-3 hover:bg-slate-200"
+                >
+                  {exporting ? '...' : 'Export Excel'}
+                </button>
               </div>
             </div>
             
@@ -401,6 +464,30 @@ function IconEdit({ className }: { className?: string }) {
     <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+    </svg>
+  );
+}
+
+function IconQrCode({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7"></rect>
+      <rect x="14" y="3" width="7" height="7"></rect>
+      <rect x="14" y="14" width="7" height="7"></rect>
+      <rect x="3" y="14" width="7" height="7"></rect>
+      <line x1="7" y1="7" x2="7" y2="7"></line>
+      <line x1="17" y1="7" x2="17" y2="7"></line>
+      <line x1="17" y1="17" x2="17" y2="17"></line>
+      <line x1="7" y1="17" x2="7" y2="17"></line>
+    </svg>
+  );
+}
+
+function IconPlus({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
     </svg>
   );
 }
