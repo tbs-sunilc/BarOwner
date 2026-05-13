@@ -358,7 +358,7 @@ export default function KycStatusPage() {
             Back to Login
           </button>
         </>
-      ) : barDetails ? (
+      ) /*: barDetails ? (
         <>
           <div className="mb-3 text-4xl" aria-hidden="true">🏢⏳</div>
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
@@ -384,7 +384,7 @@ export default function KycStatusPage() {
             Back to Login
           </button>
         </>
-      ) : (
+      ) */: (
         <>
           <div className="mb-3 text-4xl" aria-hidden="true">✅</div>
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
