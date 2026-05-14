@@ -7,6 +7,7 @@ import { ErrorBanner } from '@/components/ui';
 import {
   ApiError,
   getBarDetails,
+  getDashboard,
   requestOwnerOtp,
   verifyOwnerOtp,
   type BarDetails,
@@ -130,75 +131,75 @@ export default function BarOwnerLoginPage() {
   }
 */
 
-async function handleVerifyOtp(e: React.FormEvent) {
-  e.preventDefault();
-  setError(null);
-  setNotice(null);
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
 
-  if (otp.length !== otpLength) {
-    setError(`Enter the ${otpLength}-digit OTP sent to your registered mobile number.`);
-    return;
-  }
-
-  setBusy(true);
-  try {
-    const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp });
-    persistOwnerSession(response);
-
-    // Check KYC status from API response
-    const kycData = parseKycStatusFromApi(response.user.kycStatus, response.user.kycRejectionReason);
-    
-    if (kycData) {
-      saveKycStatus(kycData);
-      
-      // Try to get bar details
-      try {
-        const bar = await getBarDetails();
-        persistBarDetails(bar);
-        
-        // If bar exists, check subscription
-        const dashboard = await getDashboard(bar.barId);
-        if (dashboard.subscription) {
-          router.replace('/inventory');
-          return;
-        }
-      } catch (barErr) {
-        // No bar found (204 No Content) - check if user KYC is approved
-        if (kycData.status === 'user_approved') {
-          // User verified but no bar registered
-          router.replace('/register/kyc-status');
-          return;
-        }
-      }
-      
-      // Redirect to KYC status page
-      router.replace('/register/kyc-status');
+    if (otp.length !== otpLength) {
+      setError(`Enter the ${otpLength}-digit OTP sent to your registered mobile number.`);
       return;
     }
 
-    // Fallback: try to get bar details directly
-    let bar: BarDetails;
+    setBusy(true);
     try {
-      bar = await getBarDetails();
+      const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp });
+      persistOwnerSession(response);
+
+      // Check KYC status from API response
+      const kycData = parseKycStatusFromApi(response.user.kycStatus, response.user.kycRejectionReason);
+
+      if (kycData) {
+        saveKycStatus(kycData);
+
+        // Try to get bar details
+        try {
+          const bar = await getBarDetails();
+          persistBarDetails(bar);
+
+          // If bar exists, check subscription
+          const dashboard = await getDashboard(bar.barId);
+          if (dashboard.subscription) {
+            router.replace('/');
+            return;
+          }
+        } catch (barErr) {
+          // No bar found (204 No Content) - check if user KYC is approved
+          if (kycData.status === 'user_approved') {
+            // User verified but no bar registered
+            router.replace('/register/kyc-status');
+            return;
+          }
+        }
+
+        // Redirect to KYC status page
+        router.replace('/register/kyc-status');
+        return;
+      }
+
+      // Fallback: try to get bar details directly
+      let bar: BarDetails;
+      try {
+        bar = await getBarDetails();
+      } catch (err) {
+        setError(readApiMessage(err, 'OTP verified, but we could not load your bar details. Please try again.'));
+        return;
+      }
+
+      if (!bar.isVerified || !bar.isActive) {
+        clearActiveBarId();
+        setNotice(getBarAccessMessage(bar));
+        return;
+      }
+
+      persistBarDetails(bar);
+      router.replace('/inventory');
     } catch (err) {
-      setError(readApiMessage(err, 'OTP verified, but we could not load your bar details. Please try again.'));
-      return;
+      setError(readApiMessage(err, 'Invalid or expired OTP. Please try again.'));
+    } finally {
+      setBusy(false);
     }
-
-    if (!bar.isVerified || !bar.isActive) {
-      clearActiveBarId();
-      setNotice(getBarAccessMessage(bar));
-      return;
-    }
-
-    persistBarDetails(bar);
-    router.replace('/inventory');
-  } catch (err) {
-    setError(readApiMessage(err, 'Invalid or expired OTP. Please try again.'));
-  } finally {
-    setBusy(false);
   }
-}
 
   function backToDetails() {
     setStep('details');

@@ -225,7 +225,7 @@ export default function KycStatusPage() {
           Your personal identity has been verified successfully. To start using SipSave, you now need to register your bar and provide business documents.
         </p>
 
-        <button
+        <button 
           type="button"
           onClick={() => router.push('/register/documents')}
           className="btn btn-primary mt-6 w-full"
@@ -385,28 +385,28 @@ export default function KycStatusPage() {
           </button>
         </>
       ) */: (
-        <>
-          <div className="mb-3 text-4xl" aria-hidden="true">✅</div>
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
-            User Kyc Verification complete
-          </p>
-          <h1 className="mt-1 font-display text-3xl leading-tight text-ink">
-            Account Approved!
-          </h1>
-          <span className="gold-rule mb-2 mt-2" aria-hidden="true" />
-          <p className="text-sm leading-relaxed text-muted">
-            Congratulations! Your account has been verified. You can now Register your Bar..
-          </p>
+          <>
+            <div className="mb-3 text-4xl" aria-hidden="true">✅</div>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
+              User Kyc Verification complete
+            </p>
+            <h1 className="mt-1 font-display text-3xl leading-tight text-ink">
+              Account Approved!
+            </h1>
+            <span className="gold-rule mb-2 mt-2" aria-hidden="true" />
+            <p className="text-sm leading-relaxed text-muted">
+              Congratulations! Your account has been verified. You can now Register your Bar..
+            </p>
 
-          <button
-            type="button"
-            onClick={() => router.push('/register')}
-            className="btn btn-primary mt-6 w-full"
-          >
-            Register your bar first
-          </button>
-        </>
-      )}
+            <button
+              type="button"
+              onClick={() => router.push('/register')}
+              className="btn btn-primary mt-6 w-full"
+            >
+              Register your bar first
+            </button>
+          </>
+        )}
     </div>
   );
 }
