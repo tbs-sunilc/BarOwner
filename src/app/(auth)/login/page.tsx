@@ -160,7 +160,7 @@ export default function BarOwnerLoginPage() {
           // If bar exists, check subscription
           const dashboard = await getDashboard(bar.barId);
           if (dashboard.subscription) {
-            router.replace('/');
+            router.replace('/dashboard');
             return;
           }
         } catch (barErr) {
