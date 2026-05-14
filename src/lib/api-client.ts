@@ -5,7 +5,7 @@
  * problem+json body so callers can render the right banner.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.161:5000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.239:5000';
 
 export class ApiError extends Error {
   status: number;
