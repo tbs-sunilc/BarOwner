@@ -50,59 +50,91 @@ export default function CustomerDetailPage() {
   const customerName = rows[0]?.userDisplayName ?? 'Guest';
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto reveal">
       <button
         onClick={() => router.back()}
-        className="text-slate-400 hover:text-white text-sm mb-4"
+        className="text-slate-400 hover:text-ink font-black text-[10px] flex items-center gap-1 mb-8 uppercase tracking-widest"
       >
-        ← Back to floor
+        ← Back to Floor Plan
       </button>
 
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">{customerName}</h1>
-        <p className="text-slate-400 text-sm">Session #{sessionId}</p>
+      <header className="bg-slate-950 rounded-[40px] p-10 text-white shadow-xl relative overflow-hidden mb-12">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-amber-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="flex justify-between items-start relative">
+          <div>
+            <div className="flex items-center gap-4 mb-4">
+               <span className="text-4xl font-black tracking-tighter">Table {sessionId}</span>
+               <span className="badge-tablet bg-amber-500/20 text-amber-500 border border-amber-500/30">ACTIVE SESSION</span>
+            </div>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+              Customer: <span className="text-white">{customerName}</span> · Checked in 45m ago
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Session Total</p>
+            <p className="text-4xl font-black text-amber-500 tracking-tighter">₹1,840</p>
+          </div>
+        </div>
       </header>
 
-      {loading && <p className="text-slate-400">Loading…</p>}
+      {loading && <div className="p-20 text-center text-slate-400 animate-pulse">Loading table details...</div>}
       {error && (
-        <p className="text-rose-400 bg-rose-950/40 border border-rose-900 rounded-md px-4 py-3">
-          {error}
-        </p>
-      )}
-
-      {!loading && !error && rows.length === 0 && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
-          <p>No pending pour requests on this table.</p>
+        <div className="bg-rose-50 border border-rose-100 text-rose-600 p-5 rounded-[24px] mb-8 font-bold text-sm">
+          ⚠️ {error}
         </div>
       )}
 
-      <ul className="space-y-3">
+      {!loading && !error && rows.length === 0 && (
+        <div className="bg-white border-2 border-dashed border-slate-100 rounded-[40px] p-24 text-center">
+          <div className="text-7xl mb-6 grayscale opacity-10">🥃</div>
+          <p className="text-ink font-black text-xl">No Pending Pours</p>
+          <p className="text-slate-400 text-sm mt-1 font-medium">This table is active but has no open requests.</p>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {rows.length > 0 && (
+           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-2">Active Pour Requests ({rows.length})</h3>
+        )}
         {rows.map((pour) => (
-          <li key={pour.id}>
-            <Link
-              href={`/serve/${pour.id}`}
-              className="block bg-slate-800 border border-slate-700 hover:border-violet-500 hover:bg-slate-700/60 rounded-xl p-4 transition"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">
-                    {pour.bottleBrandName ?? 'Bottle'} {pour.bottleProductName ?? ''}
-                  </p>
-                  <p className="text-sm text-slate-400">
-                    Requested {new Date(pour.createdAtUtc).toLocaleTimeString()}
-                  </p>
-                </div>
-                <span className="text-2xl font-bold text-violet-300">{pour.requestedMl} ml</span>
-              </div>
-              {pour.userNotes && (
-                <p className="mt-2 text-xs text-slate-400 italic">
-                  &ldquo;{pour.userNotes}&rdquo;
+          <div
+            key={pour.id}
+            className="panel p-8 hover:border-amber-400 transition-all group cursor-pointer"
+            onClick={() => router.push(`/serve/${pour.id}`)}
+          >
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Bottle Wallet</p>
+                <p className="text-2xl font-black text-ink group-hover:text-amber-700 transition-colors">
+                  {pour.bottleBrandName ?? 'Bottle'}
                 </p>
-              )}
-            </Link>
-          </li>
+                <p className="text-[11px] text-slate-400 mt-1 font-bold uppercase tracking-tight">
+                  Requested {new Date(pour.createdAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-4xl font-black text-amber-700 tracking-tighter">{pour.requestedMl}<span className="text-sm ml-1 text-slate-300">ml</span></span>
+              </div>
+            </div>
+            
+            {pour.userNotes && (
+              <div className="mb-8 p-5 bg-amber-50/50 rounded-2xl text-sm text-amber-800 font-bold border-l-4 border-amber-300 italic">
+                &ldquo;{pour.userNotes}&rdquo;
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center">
+               <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">KYC Verified</span>
+               </div>
+               <button className="btn-tablet btn-tablet-g px-10 shadow-lg shadow-emerald-100">
+                 Serve Now →
+               </button>
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

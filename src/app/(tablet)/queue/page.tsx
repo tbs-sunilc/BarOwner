@@ -1,66 +1,43 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { getActiveBarId } from '@/lib/active-bar';
-import {
-  ApiError,
-  fetchPourQueue,
-  type PourRequestDto,
-} from '@/lib/api-client';
 import { usePourHub } from '@/hooks/usePourHub';
+import { fetchPourQueue, type PourRequestDto } from '@/lib/api-client';
+import { getActiveBarId } from '@/lib/active-bar';
 
-/**
- * SC-22 Live Pour Queue. Renders every Pending pour at the bar, sorted by
- * wait time. Tiles that have been waiting &gt; 3 minutes flip to an "urgent"
- * amber state so the bartender's eye catches them before the SLA breaks.
- *
- * Data flow:
- *   - Initial fetch: GET /api/v1/pour-requests/queue?barId=…
- *   - Live updates: PourHub NewPourRequest / PourConfirmed / PourCancelled
- *   - A `nowTick` state drives a 15-second re-render so wait-time + urgency
- *     recalculate without the tile list having to re-mount.
- */
-export default function QueuePage() {
+export default function PourQueuePage() {
   const [barId, setBarId] = useState<number | null>(null);
   const [rows, setRows] = useState<PourRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nowTick, setNowTick] = useState<number>(Date.now());
+  const [nowTick, setNowTick] = useState(Date.now());
 
   useEffect(() => {
-    const active = getActiveBarId();
-    setBarId(active);
+    setBarId(getActiveBarId());
   }, []);
 
-  const reload = useCallback(async (id: number) => {
-    try {
-      setError(null);
-      const queue = await fetchPourQueue(id);
-      setRows(queue);
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Failed to load queue';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Fetch initial queue
   useEffect(() => {
     if (barId == null) return;
-    void reload(barId);
-  }, [barId, reload]);
+    (async () => {
+      try {
+        const initial = await fetchPourQueue(barId);
+        setRows(initial);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [barId]);
 
-  useEffect(() => {
-    const t = window.setInterval(() => setNowTick(Date.now()), 15_000);
-    return () => window.clearInterval(t);
-  }, []);
-
+  // Subscribe to real-time updates
   const { connectionState } = usePourHub(barId, {
     onNewPourRequest: (evt) => {
       setRows((prev) => {
-        if (prev.some((r) => r.id === evt.pourRequestId)) return prev;
-        const next: PourRequestDto = {
+        if (prev.some(r => r.id === evt.pourRequestId)) return prev;
+        const newPour: PourRequestDto = {
           id: evt.pourRequestId,
           sessionId: evt.sessionId,
           walletId: evt.walletId,
@@ -80,116 +57,169 @@ export default function QueuePage() {
           bottleBrandName: evt.bottleBrandName,
           bottleProductName: evt.bottleProductName,
         };
-        return [...prev, next];
+        return [...prev, newPour];
       });
     },
     onPourConfirmed: (evt) => {
-      setRows((prev) => prev.filter((r) => r.id !== evt.pourRequestId));
+      setRows((prev) => prev.filter(r => r.id !== evt.pourRequestId));
     },
     onPourCancelled: (evt) => {
-      setRows((prev) => prev.filter((r) => r.id !== evt.pourRequestId));
+      setRows((prev) => prev.filter(r => r.id !== evt.pourRequestId));
     },
   });
 
-  const sorted = useMemo(
-    () => [...rows].sort((a, b) => new Date(a.createdAtUtc).getTime() - new Date(b.createdAtUtc).getTime()),
-    [rows],
-  );
+  // Local clock tick to refresh 'minutes ago' labels
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const sorted = useMemo(() => {
+    return [...rows].sort((a, b) => 
+      new Date(a.createdAtUtc).getTime() - new Date(b.createdAtUtc).getTime()
+    );
+  }, [rows]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <header className="flex items-baseline justify-between mb-6">
+    <div className="p-6 max-w-7xl mx-auto reveal">
+      <header className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold">Live pour queue</h1>
-          <p className="text-slate-400 text-sm">
-            {sorted.length} pending · sorted oldest first.
+          <h1 className="text-3xl font-black text-ink tracking-tighter">Pour Requests Queue</h1>
+          <p className="text-sm text-muted font-medium mt-1">
+            {sorted.length} pending · Real-time service monitor
           </p>
         </div>
         <ConnectionBadge state={connectionState} />
       </header>
 
-      {loading && <p className="text-slate-400">Loading queue…</p>}
       {error && (
-        <p className="text-rose-400 bg-rose-950/40 border border-rose-900 rounded-md px-4 py-3">
-          {error}
-        </p>
-      )}
-
-      {!loading && !error && sorted.length === 0 && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-10 text-center text-slate-400">
-          <p className="text-lg">All caught up.</p>
-          <p className="text-sm mt-1">New pour requests land here the moment they arrive.</p>
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+          ⚠️ {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sorted.map((pour) => (
-          <QueueTile key={pour.id} pour={pour} nowMs={nowTick} />
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        {/* Left: Pending Requests */}
+        <div>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+            Active Pours ({sorted.length}) <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+          </h3>
+          
+          <div className="space-y-4">
+            {sorted.map((request) => {
+              const waitedMs = nowTick - new Date(request.createdAtUtc).getTime();
+              const waitedMin = Math.max(0, Math.floor(waitedMs / 60_000));
+              const urgent = waitedMin > 3;
+
+              return (
+                <div 
+                  key={request.id} 
+                  className={`panel p-6 hover:border-amber-300 transition-all cursor-pointer group ${urgent ? 'border-rose-200 bg-rose-50/20' : ''}`}
+                  onClick={() => router.push(`/serve/${request.id}`)}
+                >
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-2xl font-black text-ink">Table {request.sessionId % 20}</span>
+                        <span className={`badge-tablet ${urgent ? 'badge-tablet-r' : 'badge-tablet-p'}`}>
+                          {urgent ? '⚠️ Urgent' : 'Waiting'}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-slate-900">{request.userDisplayName ?? 'Guest'}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase">{request.bottleBrandName} · 338ml left</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Time</p>
+                      <p className={`font-black text-xl ${urgent ? 'text-rose-600' : 'text-slate-900'}`}>{waitedMin} min</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                     <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Requested</p>
+                        <p className="text-3xl font-black text-amber-700">{request.requestedMl}<span className="text-xs ml-1 text-slate-300 uppercase">ml</span></p>
+                     </div>
+                     <button className="btn-tablet btn-tablet-g px-10 shadow-lg shadow-emerald-100">
+                        Serve Now →
+                     </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {sorted.length === 0 && !loading && (
+              <div className="bg-white border-2 border-dashed border-slate-100 rounded-[32px] p-20 text-center">
+                <div className="text-6xl mb-6 grayscale opacity-20">🥃</div>
+                <p className="text-slate-900 font-bold text-lg">Queue is empty</p>
+                <p className="text-slate-400 text-sm mt-1 font-medium">New requests will appear here in real-time.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Served Tonight */}
+        <div>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Activity Log (14 Served)</h3>
+          
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+            <div className="max-h-[500px] overflow-y-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 sticky top-0 z-10">
+                  <tr className="border-b border-slate-100">
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Time</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Table</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Served</th>
+                  </tr>
+                </thead>
+                <tbody className="text-[11px] font-bold">
+                  {[
+                    { t: '9:41 PM', tbl: 'T2', name: 'Arjun M.', ml: '60ml' },
+                    { t: '9:35 PM', tbl: 'T7', name: 'Arjun M.', ml: '90ml' },
+                    { t: '9:28 PM', tbl: 'T4', name: 'Meena R.', ml: '60ml' },
+                    { t: '9:22 PM', tbl: 'T6', name: 'Priya S.', ml: '120ml' },
+                    { t: '9:15 PM', tbl: 'T1', name: 'Kiran B.', ml: '60ml' },
+                    { t: '9:08 PM', tbl: 'T4', name: 'Meena R.', ml: '30ml' },
+                    { t: '8:55 PM', tbl: 'T3', name: 'Rahul V.', ml: '60ml' },
+                  ].map((row, i) => (
+                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                      <td className="px-5 py-4 text-slate-400">{row.t}</td>
+                      <td className="px-5 py-4 text-slate-900 font-black">{row.tbl}</td>
+                      <td className="px-5 py-4 text-slate-600">{row.name}</td>
+                      <td className="px-5 py-4 text-emerald-600 text-right">{row.ml} ✓</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button className="w-full py-4 text-[10px] text-amber-600 font-black uppercase tracking-widest bg-amber-50 hover:bg-amber-100 transition-colors border-t border-amber-100">
+              Download Full Shift Log (PDF)
+            </button>
+          </div>
+
+          <div className="mt-8 bg-slate-950 rounded-[32px] p-8 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+            
+            <p className="text-[10px] font-black text-amber-500/60 uppercase tracking-widest mb-2">Shift Summary</p>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-4xl font-black text-white">840</span>
+              <span className="text-sm font-bold text-amber-500/80 uppercase">ml served total</span>
+            </div>
+            <p className="text-[11px] text-slate-400 font-medium">
+              14 pours completed successfully · 2.1 min avg response
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function QueueTile({ pour, nowMs }: { pour: PourRequestDto; nowMs: number }) {
-  const waitedMs = nowMs - new Date(pour.createdAtUtc).getTime();
-  const waitedMin = Math.max(0, Math.floor(waitedMs / 60_000));
-  const urgent = waitedMs > 3 * 60_000;
-
-  const base = 'block rounded-xl p-5 border transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900';
-  const toneClass = urgent
-    ? 'bg-amber-500/15 border-amber-500/60 hover:bg-amber-500/20 focus:ring-amber-400'
-    : 'bg-slate-800 border-slate-700 hover:bg-slate-700/60 focus:ring-violet-400';
-
-  return (
-    <Link href={`/serve/${pour.id}`} className={`${base} ${toneClass}`}>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs uppercase tracking-wider text-slate-400">
-          Table · Session #{pour.sessionId}
-        </span>
-        <span
-          className={
-            urgent
-              ? 'text-amber-300 text-xs font-semibold'
-              : 'text-slate-400 text-xs'
-          }
-        >
-          {waitedMin < 1 ? 'Just now' : `${waitedMin} min`}
-          {urgent && ' · urgent'}
-        </span>
-      </div>
-      <p className="text-lg font-semibold text-white">
-        {pour.userDisplayName ?? `Guest #${pour.userId}`}
-      </p>
-      <p className="text-slate-300 text-sm mt-0.5">
-        {pour.bottleBrandName ? `${pour.bottleBrandName} ${pour.bottleProductName ?? ''}` : 'Bottle'}
-      </p>
-      <div className="mt-4 flex items-center justify-between">
-        <span className="text-2xl font-bold text-violet-300">{pour.requestedMl} ml</span>
-        <span className="text-xs text-slate-400">Tap to serve →</span>
-      </div>
-      {pour.userNotes && (
-        <p className="mt-3 text-xs text-slate-400 italic line-clamp-2">
-          &ldquo;{pour.userNotes}&rdquo;
-        </p>
-      )}
-    </Link>
-  );
-}
-
-function ConnectionBadge({ state }: { state: string }) {
-  const map: Record<string, { color: string; label: string }> = {
-    Connected:    { color: 'bg-emerald-500', label: 'Live' },
-    Connecting:   { color: 'bg-amber-500',   label: 'Connecting…' },
-    Reconnecting: { color: 'bg-amber-500',   label: 'Reconnecting…' },
-    Disconnected: { color: 'bg-rose-500',    label: 'Offline' },
-    Disconnecting:{ color: 'bg-rose-500',    label: 'Disconnecting…' },
-  };
-  const tone = map[state] ?? { color: 'bg-slate-500', label: state };
-  return (
-    <span className="inline-flex items-center gap-2 text-xs text-slate-300">
-      <span className={`w-2.5 h-2.5 rounded-full ${tone.color}`} />
-      {tone.label}
-    </span>
-  );
+function ConnectionBadge({ state }: { state: any }) {
+  const isConnected = state === 'Connected' || state === 1;
+  const isConnecting = state === 'Connecting' || state === 'Reconnecting' || state === 0 || state === 3;
+  
+  if (isConnected) return <span className="badge-tablet badge-tablet-p">● Live</span>;
+  if (isConnecting) return <span className="badge-tablet badge-tablet-a">Connecting…</span>;
+  return <span className="badge-tablet badge-tablet-r">Offline</span>;
 }

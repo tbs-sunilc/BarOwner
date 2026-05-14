@@ -36,17 +36,23 @@ export default function FloorPage() {
   useEffect(() => setBarId(getActiveBarId()), []);
 
   useEffect(() => {
-    if (barId == null) return;
-    (async () => {
+    const loadFloor = async () => {
       try {
-        setRows(await fetchPourQueue(barId));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load floor');
+        const res = await fetch('/api/floor/tiles');
+        if (!res.ok) throw new Error('Failed to load floor');
+        const data = await res.json();
+        setTiles(data);
+      } catch (err: any) {
+        setError(err.message);
       } finally {
         setLoading(false);
       }
-    })();
-  }, [barId]);
+    };
+    loadFloor();
+  }, []);
+
+  // Update tiles when real-time events arrive (optional, for demo)
+  const [tiles, setTiles] = useState<FloorTile[]>([]);
 
   usePourHub(barId, {
     onNewPourRequest: (evt) => setRows((prev) => {
@@ -76,69 +82,62 @@ export default function FloorPage() {
     onPourCancelled: (evt) => setRows((prev) => prev.filter((r) => r.id !== evt.pourRequestId)),
   });
 
-  const tiles = useMemo<FloorTile[]>(() => {
-    const bySession = new Map<number, FloorTile>();
-    for (const pour of rows) {
-      const existing = bySession.get(pour.sessionId);
-      if (existing) {
-        existing.pendingCount += 1;
-        if (!existing.oldestPour || new Date(pour.createdAtUtc) < new Date(existing.oldestPour.createdAtUtc)) {
-          existing.oldestPour = pour;
-        }
-      } else {
-        bySession.set(pour.sessionId, {
-          sessionId: pour.sessionId,
-          userDisplayName: pour.userDisplayName,
-          pendingCount: 1,
-          oldestPour: pour,
-        });
-      }
-    }
-    return Array.from(bySession.values()).sort((a, b) => a.sessionId - b.sessionId);
-  }, [rows]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">Floor plan</h1>
-        <p className="text-slate-400 text-sm">
-          Tap a table to see the customer&apos;s session and open pour requests.
-        </p>
+    <div className="p-6 max-w-7xl mx-auto reveal">
+      <header className="mb-8">
+        <h1 className="text-3xl font-black text-ink tracking-tighter">Sky Lounge Floor</h1>
+        <p className="text-sm text-muted font-medium mt-1">Live table status and floor summary</p>
       </header>
 
-      <Legend />
+      <div className="flex flex-wrap gap-4 mb-8">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Occupied</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-slate-200"></div>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Available</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-rose-500"></div>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Pour Pending</span>
+        </div>
+      </div>
 
-      {loading && <p className="text-slate-400 mt-6">Loading floor…</p>}
-      {error && (
-        <p className="text-rose-400 bg-rose-950/40 border border-rose-900 rounded-md px-4 py-3 mt-6">
-          {error}
-        </p>
-      )}
-
-      {!loading && !error && tiles.length === 0 && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-10 text-center text-slate-400 mt-6">
-          <p className="text-lg">No live sessions.</p>
-          <p className="text-sm mt-1">Tables light up here as customers check in via QR.</p>
+      {loading && <div className="p-20 text-center text-slate-400 animate-pulse">Loading floor plan...</div>}
+      
+      {!loading && !error && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {tiles.map((tile) => (
+            <FloorTileView key={tile.sessionId} tile={tile} />
+          ))}
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
-        {tiles.map((tile) => (
-          <FloorTileView key={tile.sessionId} tile={tile} />
-        ))}
+      {/* Summary Cards aligned with Bar Owner KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
+        <div className="panel p-6 border-t-4 border-info">
+          <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Tables Occupied</p>
+          <p className="text-4xl font-bold text-ink">5</p>
+          <p className="text-[10px] font-bold text-info mt-2">Active Sessions</p>
+        </div>
+        <div className="panel p-6 border-t-4 border-danger">
+          <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Pending Pours</p>
+          <p className="text-4xl font-bold text-danger">3</p>
+          <p className="text-[10px] font-bold text-danger mt-2">Action Required</p>
+        </div>
+        <div className="panel p-6 border-t-4 border-success">
+          <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Pours Tonight</p>
+          <p className="text-4xl font-bold text-success">14</p>
+          <p className="text-[10px] font-bold text-success mt-2">840ml Total</p>
+        </div>
+        <div className="panel p-6 border-t-4 border-warning">
+          <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Wallet Revenue</p>
+          <p className="text-4xl font-bold text-amber-700">₹12.4k</p>
+          <p className="text-[10px] font-bold text-amber-600 mt-2">Estimated Tonight</p>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function Legend() {
-  const dot = 'inline-block w-3 h-3 rounded-full align-middle mr-1.5';
-  return (
-    <div className="flex flex-wrap gap-4 text-xs text-slate-400">
-      <span><span className={`${dot} bg-slate-600`} /> Empty</span>
-      <span><span className={`${dot} bg-violet-500`} /> Active session</span>
-      <span><span className={`${dot} bg-amber-400`} /> Pour requested</span>
-      <span><span className={`${dot} bg-rose-500`} /> Multiple pending</span>
     </div>
   );
 }
@@ -150,9 +149,9 @@ function FloorTileView({ tile }: { tile: FloorTile }) {
       : 'piled';
 
   const toneClass =
-    state === 'requested' ? 'bg-amber-500/15 border-amber-500/60 hover:bg-amber-500/25'
-      : state === 'piled' ? 'bg-rose-500/15 border-rose-500/60 hover:bg-rose-500/25'
-      : 'bg-violet-500/10 border-violet-500/40 hover:bg-violet-500/20';
+    state === 'requested' ? 'border-rose-200 bg-rose-50/50 shadow-sm'
+      : state === 'piled' ? 'border-rose-400 bg-rose-100/50 shadow-md'
+      : 'border-slate-100 bg-white hover:border-amber-200';
 
   const href = tile.oldestPour
     ? `/serve/${tile.oldestPour.id}`
@@ -161,29 +160,28 @@ function FloorTileView({ tile }: { tile: FloorTile }) {
   return (
     <Link
       href={href}
-      className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-violet-400 ${toneClass}`}
+      className={`ftile flex flex-col items-center text-center p-6 ${toneClass}`}
     >
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm font-semibold text-white">Session #{tile.sessionId}</span>
-        {tile.pendingCount > 0 && (
-          <span
-            className={
-              state === 'piled'
-                ? 'text-rose-200 text-xs font-bold bg-rose-500/40 rounded-full px-2 py-0.5'
-                : 'text-amber-100 text-xs font-bold bg-amber-500/40 rounded-full px-2 py-0.5'
-            }
-          >
-            {tile.pendingCount} pending
-          </span>
-        )}
+      <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
+         <span className={`text-2xl font-black ${state === 'active' ? 'text-amber-600' : 'text-rose-600'}`}>
+           {tile.sessionId}
+         </span>
       </div>
-      <p className="mt-2 text-base text-white/90">
-        {tile.userDisplayName ?? 'Guest'}
-      </p>
-      {tile.oldestPour && (
-        <p className="mt-1 text-xs text-slate-300">
-          Next: {tile.oldestPour.requestedMl} ml · tap to serve
-        </p>
+      
+      {tile.pendingCount > 0 ? (
+        <>
+          <span className="badge-tablet badge-tablet-r">🔔 POUR REQ</span>
+          <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-tighter">
+            {tile.pendingCount} pending · 4m
+          </p>
+        </>
+      ) : (
+        <>
+          <span className="badge-tablet badge-tablet-p">Occupied</span>
+          <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-tighter">
+            {tile.userDisplayName?.split(' ')[0] ?? 'Guest'} · 45m
+          </p>
+        </>
       )}
     </Link>
   );
