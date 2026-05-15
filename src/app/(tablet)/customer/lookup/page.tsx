@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { createPourRequest } from '@/lib/api-client';
 
 export default function CustomerLookupPage() {
   const router = useRouter();
@@ -11,6 +12,22 @@ export default function CustomerLookupPage() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
+  const [initiating, setInitiating] = useState(false);
+
+  const handleInitiatePour = async (walletId: number) => {
+    setInitiating(true);
+    try {
+      const res = await createPourRequest({
+        walletId,
+        requestedMl: 60, // Default to 60ml, can be adjusted on the serve page
+      });
+      router.push(`/serve/${res.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to initiate pour');
+    } finally {
+      setInitiating(false);
+    }
+  };
 
   const handleSearch = async (val?: string) => {
     const mobile = val || mobileNumber;
@@ -139,30 +156,27 @@ export default function CustomerLookupPage() {
               </div>
 
               <div>
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Active Spirit Wallets (2)</h4>
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Active Spirit Wallets ({customer.wallets?.length || 0})</h4>
                 <div className="space-y-4">
-                  {[
-                    { btl: 'Johnnie Walker Black Label', ml: 338, total: 750, sub: 'Last served: 35 min ago' },
-                    { btl: 'Absolut Vodka', ml: 168, total: 750, sub: '⚠️ Low Balance alert', warn: true },
-                  ].map((wallet, i) => (
+                  {customer.wallets?.map((wallet: any, i: number) => (
                     <div 
                       key={i} 
-                      className="panel p-6 hover:border-amber-300 transition-all cursor-pointer group"
-                      onClick={() => router.push('/serve/999')}
+                      className={`panel p-6 hover:border-amber-300 transition-all cursor-pointer group ${initiating ? 'opacity-50 pointer-events-none' : ''}`}
+                      onClick={() => handleInitiatePour(wallet.walletId || wallet.id)}
                     >
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                           <p className="font-black text-ink text-lg">{wallet.btl}</p>
-                           <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${wallet.warn ? 'text-amber-600' : 'text-slate-400'}`}>
-                             {wallet.sub}
+                           <p className="font-black text-ink text-lg">{wallet.name}</p>
+                           <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${wallet.balance < 100 ? 'text-amber-600' : 'text-slate-400'}`}>
+                             {wallet.balance < 100 ? '⚠️ Low Balance alert' : `Last served: ${wallet.lastServed || 'N/A'}`}
                            </p>
                         </div>
-                        <p className="text-3xl font-black text-amber-700">{wallet.ml}<span className="text-xs ml-1 text-slate-300">ml</span></p>
+                        <p className="text-3xl font-black text-amber-700">{wallet.balance}<span className="text-xs ml-1 text-slate-300">ml</span></p>
                       </div>
                       <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-2">
                         <div 
                           className="h-full bg-amber-500 rounded-full shadow-glow" 
-                          style={{ width: `${(wallet.ml / wallet.total) * 100}%` }}
+                          style={{ width: `${(wallet.balance / wallet.total) * 100}%` }}
                         ></div>
                       </div>
                       <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3">

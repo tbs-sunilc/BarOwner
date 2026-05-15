@@ -119,12 +119,12 @@ export default function FloorPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
         <div className="panel p-6 border-t-4 border-info">
           <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Tables Occupied</p>
-          <p className="text-4xl font-bold text-ink">5</p>
+          <p className="text-4xl font-bold text-ink">{tiles.length}</p>
           <p className="text-[10px] font-bold text-info mt-2">Active Sessions</p>
         </div>
         <div className="panel p-6 border-t-4 border-danger">
           <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Pending Pours</p>
-          <p className="text-4xl font-bold text-danger">3</p>
+          <p className="text-4xl font-bold text-danger">{tiles.reduce((acc, t) => acc + t.pendingCount, 0)}</p>
           <p className="text-[10px] font-bold text-danger mt-2">Action Required</p>
         </div>
         <div className="panel p-6 border-t-4 border-success">
@@ -133,9 +133,9 @@ export default function FloorPage() {
           <p className="text-[10px] font-bold text-success mt-2">840ml Total</p>
         </div>
         <div className="panel p-6 border-t-4 border-warning">
-          <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Wallet Revenue</p>
-          <p className="text-4xl font-bold text-amber-700">₹12.4k</p>
-          <p className="text-[10px] font-bold text-amber-600 mt-2">Estimated Tonight</p>
+          <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Estimated Revenue</p>
+          <p className="text-4xl font-bold text-amber-700">₹{(14 * 450).toLocaleString()}</p>
+          <p className="text-[10px] font-bold text-amber-600 mt-2">Wallet Sales</p>
         </div>
       </div>
     </div>

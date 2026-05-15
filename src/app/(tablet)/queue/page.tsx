@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { usePourHub } from '@/hooks/usePourHub';
 import { fetchPourQueue, type PourRequestDto } from '@/lib/api-client';
 import { getActiveBarId } from '@/lib/active-bar';
 
 export default function PourQueuePage() {
+  const router = useRouter();
   const [barId, setBarId] = useState<number | null>(null);
   const [rows, setRows] = useState<PourRequestDto[]>([]);
   const [loading, setLoading] = useState(true);

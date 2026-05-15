@@ -22,7 +22,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!headers.has('Content-Type') && init.body) headers.set('Content-Type', 'application/json');
 
   if (typeof window !== 'undefined') {
-    const token = window.sessionStorage.getItem('sipsave-barowner-access-token');
+    const ownerToken = window.sessionStorage.getItem('sipsave-barowner-access-token');
+    const staffToken = window.sessionStorage.getItem('sipsave-staff-access-token');
+    const token = staffToken || ownerToken;
     if (token) headers.set('Authorization', `Bearer ${token}`);
   }
 
@@ -107,6 +109,34 @@ export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
     method: 'POST',
     body: JSON.stringify(payload),
   });
+
+// ---------------------------------------------------------------------------
+//  Staff auth endpoints
+// ---------------------------------------------------------------------------
+
+export type StaffLoginPayload = {
+  mobileNumber: string;
+  password: string;
+};
+
+export type StaffLoginResponse = {
+  accessToken: string;
+  expiresAtUtc: string;
+  staffId: number;
+  fullName: string;
+  role: string;
+  barId: number;
+};
+
+export const loginStaff = (payload: StaffLoginPayload) =>
+  request<StaffLoginResponse>('/api/v1/staff/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+// ---------------------------------------------------------------------------
+//  Subscription plans
+// ---------------------------------------------------------------------------
 
 export type SubscriptionPlanDto = {
   id: number;
@@ -346,6 +376,11 @@ export type PourRequestDto = {
   bottleProductName: string | null;
 };
 
+export type CreatePourRequestPayload = {
+  walletId: number;
+  requestedMl: number;
+};
+
 export type SessionWalletDto = {
   walletId: number;
   bottleCatalogueId: number;
@@ -368,6 +403,12 @@ export type SessionDto = {
   lastActivityAtUtc: string;
   activeWalletsAtBar: SessionWalletDto[];
 };
+
+export const createPourRequest = (payload: CreatePourRequestPayload) =>
+  request<PourRequestDto>('/api/v1/pour-requests', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
 export const fetchPourQueue = (barId: number) =>
   request<PourRequestDto[]>(`/api/v1/pour-requests/queue?barId=${barId}`);

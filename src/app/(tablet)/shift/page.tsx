@@ -7,9 +7,8 @@ export default function ShiftSummaryPage() {
   const router = useRouter();
   const [notes, setNotes] = useState('');
   const [ending, setEnding] = useState(false);
-  const [startTime] = useState(new Date(Date.now() - 5.5 * 60 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null); // Keeping any for now to avoid extensive type definitions, but fixing the others
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,7 +67,7 @@ export default function ShiftSummaryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Left: Activity Log */}
         <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Tonight's Activity Log</h3>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Tonight&apos;s Activity Log</h3>
           <div className="bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-sm">
             <div className="max-h-[400px] overflow-y-auto">
               <table className="w-full text-left">

@@ -24,7 +24,7 @@ export function DashboardHeader({ fallbackBarName }: { fallbackBarName: string }
 
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--color-border)] bg-[rgb(255_255_255_/_0.86)] backdrop-blur transition-all duration-300">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+    {/*<div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <div className="min-w-0">
           <span className="section-kicker">Owner Workspace</span>
           <p className="mt-2 text-lg font-semibold text-[var(--color-text)] sm:text-xl">
@@ -40,7 +40,7 @@ export function DashboardHeader({ fallbackBarName }: { fallbackBarName: string }
             <p className="text-sm font-semibold text-[var(--color-text)]">{barName}</p>
           </div>
         </div>
-      </div>
+      </div>*/}
     </header>
   );
 }

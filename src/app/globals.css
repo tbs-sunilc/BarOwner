@@ -423,4 +423,39 @@ a, button, input, select, textarea {
     animation: reveal var(--duration-slow) var(--ease-out) forwards;
     animation-delay: calc(var(--index, 0) * 50ms);
   }
+
+  /* 3D Flip Animation Classes */
+  .flip-container {
+    perspective: 1200px;
+  }
+
+  .flip-card {
+    position: relative;
+    width: 100%;
+    transition: transform 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-style: preserve-3d;
+  }
+
+  .flip-card.flipped {
+    transform: rotateY(180deg);
+  }
+
+  .flip-card-front,
+  .flip-card-back {
+    position: absolute;
+    width: 100%;
+    top: 0;
+    left: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .flip-card-back {
+    transform: rotateY(180deg);
+  }
+
+  /* Adjust height to accommodate different form lengths if needed */
+  .flip-card-relative {
+    position: relative;
+  }
 }
