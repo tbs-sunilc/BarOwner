@@ -5,7 +5,7 @@
  * problem+json body so callers can render the right banner.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.239:5000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.232:5000';
 
 export class ApiError extends Error {
   status: number;
@@ -792,3 +792,58 @@ export const setStaffActive = (staffId: number, isActive: boolean) =>
     method: 'PUT',
     body: JSON.stringify({ isActive }),
   });
+
+// ---------------------------------------------------------------------------
+//  Tables & QR codes
+// ---------------------------------------------------------------------------
+
+export type BarTable = {
+  id: number;
+  barId: number;
+  tableNumber: string;
+  qrToken: string;
+  capacity: number | null;
+  floorSection: string | null;
+  isActive: boolean;
+  createdAtUtc: string;
+};
+
+export type CreateBarTableSpec = {
+  tableNumber: string;
+  capacity?: number | null;
+  floorSection?: string | null;
+};
+
+export const listBarTables = (barId: number) =>
+  request<BarTable[]>(`/api/v1/bars/${barId}/tables`);
+
+export const createBarTables = (barId: number, tables: CreateBarTableSpec[]) =>
+  request<BarTable[]>(`/api/v1/bars/${barId}/tables`, {
+    method: 'POST',
+    body: JSON.stringify({ tables }),
+  });
+
+export async function downloadBarTableQrPng(barId: number, tableId: number, tableNumber: string): Promise<void> {
+  const headers = new Headers();
+  if (typeof window !== 'undefined') {
+    const token = window.sessionStorage.getItem('sipsave-barowner-access-token');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(`${BASE_URL}/api/v1/bars/${barId}/tables/${tableId}/qr-code`, { headers });
+  if (!res.ok) throw new ApiError(res.status, res.statusText, await res.text().catch(() => null));
+  const blob = await res.blob();
+  triggerDownload(blob, `table-${tableNumber}-qr.png`);
+}
+
+export async function downloadBarTableQrBundle(barId: number): Promise<void> {
+  const headers = new Headers();
+  if (typeof window !== 'undefined') {
+    const token = window.sessionStorage.getItem('sipsave-barowner-access-token');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(`${BASE_URL}/api/v1/bars/${barId}/qr-codes`, { headers });
+  if (!res.ok) throw new ApiError(res.status, res.statusText, await res.text().catch(() => null));
+  const blob = await res.blob();
+  const filename = parseFilename(res.headers.get('Content-Disposition')) ?? `sipsave-table-qr-codes-bar-${barId}.pdf`;
+  triggerDownload(blob, filename);
+}
