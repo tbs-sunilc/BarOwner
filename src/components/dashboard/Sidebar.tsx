@@ -11,15 +11,15 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { clearActiveBarId, getActiveBarDetails } from '@/lib/active-bar';
 
 const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?: boolean; group: 'core' | 'growth' | 'account' }> = [
-  { href: '/',             icon: <IconDashboard />,   label: 'Dashboard', exact: true, group: 'core' },
-  { href: '/inventory',    icon: <IconBottle />,      label: 'Inventory', group: 'core' },
-  { href: '/staff',        icon: <IconUsers />,       label: 'Staff Accounts', group: 'core' },
-  { href: '/revenue',      icon: <IconRevenue />,     label: 'Revenue', group: 'core' },
-  { href: '/offers',       icon: <IconGift />,        label: 'Offers', group: 'growth' },
-  { href: '/loyalty',      icon: <IconSpark />,       label: 'Loyalty', group: 'growth' },
-  { href: '/campaigns',    icon: <IconMegaphone />,   label: 'Campaigns', group: 'growth' },
-  { href: '/subscription', icon: <IconCard />,        label: 'Subscription', group: 'account' },
-  { href: '/settings',     icon: <IconGear />,        label: 'Settings', group: 'account' },
+  { href: '/dashboard', icon: <IconDashboard />, label: 'Dashboard', exact: true, group: 'core' },
+  { href: '/inventory', icon: <IconBottle />, label: 'Inventory', group: 'core' },
+  { href: '/staff', icon: <IconUsers />, label: 'Staff Accounts', group: 'core' },
+  { href: '/revenue', icon: <IconRevenue />, label: 'Revenue', group: 'core' },
+  { href: '/offers', icon: <IconGift />, label: 'Offers', group: 'growth' },
+  { href: '/loyalty', icon: <IconSpark />, label: 'Loyalty', group: 'growth' },
+  { href: '/campaigns', icon: <IconMegaphone />, label: 'Campaigns', group: 'growth' },
+  { href: '/subscription', icon: <IconCard />, label: 'Subscription', group: 'account' },
+  { href: '/settings', icon: <IconGear />, label: 'Settings', group: 'account' },
 ];
 
 type Props = { barName: string };
@@ -89,7 +89,7 @@ export function Sidebar({ barName }: Props) {
             </div>
           </div>
 
-          
+
         </div>
 
         <nav className="flex-1 overflow-y-auto px-4 py-5">

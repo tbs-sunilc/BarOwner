@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ErrorBanner, NoticeCard } from '@/components/ui';
+import { ErrorBanner } from '@/components/ui';
 import {
   ApiError,
   getBarDetails,
