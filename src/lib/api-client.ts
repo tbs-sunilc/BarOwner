@@ -257,8 +257,6 @@ export type BarTableDto = {
   qrToken: string;
 };
 
-export const listBarTables = (barId: number) =>
-  request<BarTableDto[]>(`/api/v1/bars/${barId}/tables`);
 
 // ---------------------------------------------------------------------------
 //  Inventory endpoints (mirrors InventoryItemDto on the server)
