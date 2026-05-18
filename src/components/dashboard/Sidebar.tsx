@@ -13,6 +13,7 @@ import { clearActiveBarId, getActiveBarDetails } from '@/lib/active-bar';
 const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?: boolean; group: 'core' | 'growth' | 'account' }> = [
   { href: '/',             icon: <IconDashboard />,   label: 'Dashboard', exact: true, group: 'core' },
   { href: '/inventory',    icon: <IconBottle />,      label: 'Inventory', group: 'core' },
+  { href: '/tables',       icon: <IconTable />,       label: 'Tables & QR Codes', group: 'core' },
   { href: '/staff',        icon: <IconUsers />,       label: 'Staff Accounts', group: 'core' },
   { href: '/revenue',      icon: <IconRevenue />,     label: 'Revenue', group: 'core' },
   { href: '/offers',       icon: <IconGift />,        label: 'Offers', group: 'growth' },
@@ -199,6 +200,10 @@ function IconDashboard() {
 
 function IconBottle() {
   return <BaseIcon><path d="M10 3h4" /><path d="M11 3v4l-4.6 6.1a5 5 0 0 0 4 7.9h3.2a5 5 0 0 0 4-7.9L13 7V3" /><path d="M9 14h6" /></BaseIcon>;
+}
+
+function IconTable() {
+  return <BaseIcon><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" /></BaseIcon>;
 }
 
 function IconUsers() {
