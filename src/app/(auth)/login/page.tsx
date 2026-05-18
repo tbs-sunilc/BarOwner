@@ -253,7 +253,7 @@ export default function BarOwnerLoginPage() {
                     required
                     autoFocus
                     className="input"
-                    placeholder="Anita Kumar"
+                    placeholder="Avinash Kumar"
                   />
                 </div>
 
@@ -285,7 +285,6 @@ export default function BarOwnerLoginPage() {
                     Register your bar
                   </Link>
                 </div>
-
                 <p className="pt-2 text-center text-xs text-soft">Trouble signing in? Contact support.</p>
               </form>
             ) : (
@@ -474,7 +473,7 @@ function persistOwnerSession(response: VerifyOtpResponse): void {
 function persistStaffSession(response: StaffLoginResponse): void {
   window.sessionStorage.setItem('sipsave-staff-access-token', response.accessToken);
   window.sessionStorage.setItem('sipsave-staff-access-token-expires-at', response.expiresAtUtc);
-  
+
   const userObj = {
     id: response.staffId,
     fullName: response.fullName,

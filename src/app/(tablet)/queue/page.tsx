@@ -1,227 +1,150 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePourHub } from '@/hooks/usePourHub';
-import { fetchPourQueue, type PourRequestDto } from '@/lib/api-client';
-import { getActiveBarId } from '@/lib/active-bar';
+import { getTabletState, TabletState } from '@/lib/tablet-state';
 
 export default function PourQueuePage() {
   const router = useRouter();
-  const [barId, setBarId] = useState<number | null>(null);
-  const [rows, setRows] = useState<PourRequestDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nowTick, setNowTick] = useState(Date.now());
+  const [state, setState] = useState<TabletState | null>(null);
 
   useEffect(() => {
-    setBarId(getActiveBarId());
+    setState(getTabletState());
   }, []);
 
-  // Fetch initial queue
-  useEffect(() => {
-    if (barId == null) return;
-    (async () => {
-      try {
-        const initial = await fetchPourQueue(barId);
-        setRows(initial);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [barId]);
+  if (!state) {
+    return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading pour queue...</div>;
+  }
 
-  // Subscribe to real-time updates
-  const { connectionState } = usePourHub(barId, {
-    onNewPourRequest: (evt) => {
-      setRows((prev) => {
-        if (prev.some(r => r.id === evt.pourRequestId)) return prev;
-        const newPour: PourRequestDto = {
-          id: evt.pourRequestId,
-          sessionId: evt.sessionId,
-          walletId: evt.walletId,
-          userId: evt.userId,
-          barId: evt.barId,
-          requestedMl: evt.requestedMl,
-          servedMl: null,
-          status: 'Pending',
-          userNotes: evt.userNotes,
-          cancellationReason: null,
-          createdAtUtc: evt.createdAtUtc,
-          servedAtUtc: null,
-          cancelledAtUtc: null,
-          walletTransactionId: null,
-          remainingMlAfterServe: null,
-          userDisplayName: evt.userDisplayName,
-          bottleBrandName: evt.bottleBrandName,
-          bottleProductName: evt.bottleProductName,
-        };
-        return [...prev, newPour];
-      });
-    },
-    onPourConfirmed: (evt) => {
-      setRows((prev) => prev.filter(r => r.id !== evt.pourRequestId));
-    },
-    onPourCancelled: (evt) => {
-      setRows((prev) => prev.filter(r => r.id !== evt.pourRequestId));
-    },
-  });
-
-  // Local clock tick to refresh 'minutes ago' labels
-  useEffect(() => {
-    const timer = setInterval(() => setNowTick(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const sorted = useMemo(() => {
-    return [...rows].sort((a, b) => 
-      new Date(a.createdAtUtc).getTime() - new Date(b.createdAtUtc).getTime()
-    );
-  }, [rows]);
+  const handleServeNow = (requestId: number) => {
+    router.push(`/serve/${requestId}`);
+  };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto reveal">
-      <header className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-black text-ink tracking-tighter">Pour Requests Queue</h1>
-          <p className="text-sm text-muted font-medium mt-1">
-            {sorted.length} pending · Real-time service monitor
-          </p>
+    <div>
+      <div className="flex justify-between items-end mb-6">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Pour Requests Queue</h1>
+          <p className="text-sm font-semibold text-slate-500 mt-1">Real-time updates</p>
         </div>
-        <ConnectionBadge state={connectionState} />
-      </header>
+      
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
-          ⚠️ {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Left: Pending Requests */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column: Pending Requests */}
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-            Active Pours ({sorted.length}) <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+          <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4 flex items-center gap-2">
+            Pending Requests ({state.pourQueue.length})
+            {state.pourQueue.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+            )}
           </h3>
-          
-          <div className="space-y-4">
-            {sorted.map((request) => {
-              const waitedMs = nowTick - new Date(request.createdAtUtc).getTime();
-              const waitedMin = Math.max(0, Math.floor(waitedMs / 60_000));
-              const urgent = waitedMin > 3;
+
+          <div className="space-y-3">
+            {state.pourQueue.map((req) => {
+              const isUrgent = req.urgent || req.waitTime.includes('4');
+              const cardClass = isUrgent
+                ? 'border-2 border-[#e11d48] bg-[#fff1f2] hover:border-[#4338ca] hover:shadow-md'
+                : 'border border-[#e2e8f0] bg-white hover:border-[#4338ca] hover:shadow-md';
+              const badgeClass = isUrgent ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500';
 
               return (
-                <div 
-                  key={request.id} 
-                  className={`panel p-6 hover:border-amber-300 transition-all cursor-pointer group ${urgent ? 'border-rose-200 bg-rose-50/20' : ''}`}
-                  onClick={() => router.push(`/serve/${request.id}`)}
+                <div
+                  key={req.id}
+                  onClick={() => handleServeNow(req.id)}
+                  className={`rounded-xl p-4 cursor-pointer transition-all ${cardClass}`}
                 >
-                  <div className="flex justify-between items-start mb-6">
+                  <div className="flex justify-between items-start mb-4">
                     <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl font-black text-ink">Table {request.sessionId % 20}</span>
-                        <span className={`badge-tablet ${urgent ? 'badge-tablet-r' : 'badge-tablet-p'}`}>
-                          {urgent ? '⚠️ Urgent' : 'Waiting'}
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="text-lg font-bold text-slate-900">Table {req.tableId}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${badgeClass}`}>
+                          {isUrgent ? '⚠️ ' : ''}{req.waitTime}
                         </span>
                       </div>
-                      <p className="text-sm font-bold text-slate-900">{request.userDisplayName ?? 'Guest'}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase">{request.bottleBrandName} · 338ml left</p>
+                      <p className="text-base font-semibold text-slate-800">{req.customer}</p>
+                      <p className="text-xs text-slate-500 mt-1 font-medium">
+                        Wallet: {req.bottle} · {req.walletBalance}ml remaining
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Time</p>
-                      <p className={`font-black text-xl ${urgent ? 'text-rose-600' : 'text-slate-900'}`}>{waitedMin} min</p>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Amount</p>
+                      <p className="text-2xl font-black text-indigo-900">
+                        {req.requestedAmount}<span className="text-sm ml-0.5 text-slate-500">ml</span>
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
-                     <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Requested</p>
-                        <p className="text-3xl font-black text-amber-700">{request.requestedMl}<span className="text-xs ml-1 text-slate-300 uppercase">ml</span></p>
-                     </div>
-                     <button className="btn-tablet btn-tablet-g px-10 shadow-lg shadow-emerald-100">
-                        Serve Now →
-                     </button>
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleServeNow(req.id);
+                    }}
+                    className="w-full bg-[#16a34a] hover:bg-emerald-700 text-white py-2.5 rounded-lg text-sm font-bold transition-colors"
+                  >
+                    ✅ Serve Now
+                  </button>
                 </div>
               );
             })}
 
-            {sorted.length === 0 && !loading && (
-              <div className="bg-white border-2 border-dashed border-slate-100 rounded-[32px] p-20 text-center">
-                <div className="text-6xl mb-6 grayscale opacity-20">🥃</div>
-                <p className="text-slate-900 font-bold text-lg">Queue is empty</p>
-                <p className="text-slate-400 text-sm mt-1 font-medium">New requests will appear here in real-time.</p>
+            {state.pourQueue.length === 0 && (
+              <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-sm">
+                <div className="text-4xl mb-4 grayscale opacity-40">🥃</div>
+                <p className="text-slate-800 font-bold text-lg">Queue is empty</p>
+                <p className="text-slate-500 text-sm mt-1">New requests will appear here in real-time.</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right: Served Tonight */}
+        {/* Right Column: Served Tonight */}
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Activity Log (14 Served)</h3>
-          
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-            <div className="max-h-[500px] overflow-y-auto">
+          <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">Served Tonight ({state.shiftStats.poursServed})</h3>
+
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-6">
+            <div className="max-h-[360px] overflow-y-auto">
               <table className="w-full text-left">
-                <thead className="bg-slate-50 sticky top-0 z-10">
-                  <tr className="border-b border-slate-100">
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Time</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Table</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer</th>
-                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Served</th>
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Time</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Table</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bottle</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Served</th>
                   </tr>
                 </thead>
-                <tbody className="text-[11px] font-bold">
-                  {[
-                    { t: '9:41 PM', tbl: 'T2', name: 'Arjun M.', ml: '60ml' },
-                    { t: '9:35 PM', tbl: 'T7', name: 'Arjun M.', ml: '90ml' },
-                    { t: '9:28 PM', tbl: 'T4', name: 'Meena R.', ml: '60ml' },
-                    { t: '9:22 PM', tbl: 'T6', name: 'Priya S.', ml: '120ml' },
-                    { t: '9:15 PM', tbl: 'T1', name: 'Kiran B.', ml: '60ml' },
-                    { t: '9:08 PM', tbl: 'T4', name: 'Meena R.', ml: '30ml' },
-                    { t: '8:55 PM', tbl: 'T3', name: 'Rahul V.', ml: '60ml' },
-                  ].map((row, i) => (
-                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                      <td className="px-5 py-4 text-slate-400">{row.t}</td>
-                      <td className="px-5 py-4 text-slate-900 font-black">{row.tbl}</td>
-                      <td className="px-5 py-4 text-slate-600">{row.name}</td>
-                      <td className="px-5 py-4 text-emerald-600 text-right">{row.ml} ✓</td>
+                <tbody className="text-sm font-medium">
+                  {state.servedPours.map((row, i) => (
+                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-slate-500">{row.time}</td>
+                      <td className="px-4 py-3 text-slate-900 font-bold">{row.table}</td>
+                      <td className="px-4 py-3 text-slate-700">{row.customer}</td>
+                      <td className="px-4 py-3 text-slate-600">{row.bottle}</td>
+                      <td className="px-4 py-3 text-[#16a34a] font-bold text-right">{row.amount} ✓</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <button className="w-full py-4 text-[10px] text-amber-600 font-black uppercase tracking-widest bg-amber-50 hover:bg-amber-100 transition-colors border-t border-amber-100">
-              Download Full Shift Log (PDF)
-            </button>
           </div>
 
-          <div className="mt-8 bg-slate-950 rounded-[32px] p-8 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-            
-            <p className="text-[10px] font-black text-amber-500/60 uppercase tracking-widest mb-2">Shift Summary</p>
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-4xl font-black text-white">840</span>
-              <span className="text-sm font-bold text-amber-500/80 uppercase">ml served total</span>
+          {/* Bottom Summary Card */}
+          <div className="bg-[#312e81] text-white rounded-xl p-6 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs font-semibold text-indigo-200 uppercase tracking-wider mb-1">Tonight's Totals</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-white">{state.shiftStats.poursServed}</span>
+                <span className="text-sm font-medium text-indigo-200">pours served</span>
+              </div>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">
-              14 pours completed successfully · 2.1 min avg response
-            </p>
+            <div className="text-right">
+              <p className="text-xs text-indigo-200 font-medium tracking-wide">
+                Total Volume: <span className="font-bold text-white text-lg ml-1">{state.shiftStats.totalMlServed} ml</span>
+              </p>
+              <p className="text-xs text-indigo-300 mt-1">Avg service time: {state.shiftStats.avgServiceTime}</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-function ConnectionBadge({ state }: { state: any }) {
-  const isConnected = state === 'Connected' || state === 1;
-  const isConnecting = state === 'Connecting' || state === 'Reconnecting' || state === 0 || state === 3;
-  
-  if (isConnected) return <span className="badge-tablet badge-tablet-p">● Live</span>;
-  if (isConnecting) return <span className="badge-tablet badge-tablet-a">Connecting…</span>;
-  return <span className="badge-tablet badge-tablet-r">Offline</span>;
 }

@@ -1,259 +1,404 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  ApiError,
-  fetchPourRequest,
-  rejectPourRequest,
-  servePourRequest,
-  type PourRequestDto,
-} from '@/lib/api-client';
+import Link from 'next/link';
+import { getTabletState, TabletState, saveTabletState } from '@/lib/tablet-state';
 
-/**
- * SC-23 bartender serve screen. Two CTAs —
- *   * Serve  → PUT /api/v1/pour-requests/:id/serve   (runs sp_DeductWallet)
- *   * Reject → PUT /api/v1/pour-requests/:id/cancel  (staff-initiated)
- *
- * The "Serve" path pre-fills the served-ml field with the user-requested
- * volume but lets the bartender short-pour (e.g., remaining = 40 ml on a
- * 50 ml request). BR-005 is re-checked on the server so we don't need to
- * re-validate against the wallet balance here.
- */
 export default function ServePourPage() {
   const params = useParams<{ pourRequestId: string }>();
   const pourRequestId = Number(params.pourRequestId);
   const router = useRouter();
 
-  const [pour, setPour] = useState<PourRequestDto | null>(null);
-  const [servedMl, setServedMl] = useState<number>(0);
+  const [state, setState] = useState<TabletState | null>(null);
+  const [actualAmount, setActualAmount] = useState<number>(60);
+  const [selectedWalletId, setSelectedWalletId] = useState<number>(1);
   const [staffNotes, setStaffNotes] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
-  const [showReject, setShowReject] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+
+  // Initial balance of selected wallet
+  const currentBalance = selectedWalletId === 1 ? 338 : 168;
+  const bottleName = selectedWalletId === 1 ? 'Johnnie Walker Black Label' : 'Absolut Vodka';
 
   useEffect(() => {
-    if (!Number.isFinite(pourRequestId) || pourRequestId <= 0) {
-      setError('Invalid pour request id.');
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const row = await fetchPourRequest(pourRequestId);
-        setPour(row);
-        setServedMl(row.requestedMl);
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'Failed to load pour request');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [pourRequestId]);
+    setState(getTabletState());
+  }, []);
 
-  const handleServe = async () => {
-    if (!pour) return;
-    if (servedMl <= 0) {
-      setFieldError('Served volume must be greater than zero.');
+  if (!state) {
+    return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading serve form...</div>;
+  }
+
+  // Find our pour request in queue
+  const pourRequest = state.pourQueue.find(q => q.id === pourRequestId) || {
+    id: 5002,
+    tableId: 7,
+    customer: 'Arjun Mehta',
+    bottle: 'Johnnie Walker Black Label',
+    walletBalance: 338,
+    requestedAmount: 60,
+    waitTime: '4 min'
+  };
+
+  const handleQuickAmountClick = (amount: number) => {
+    setActualAmount(amount);
+  };
+
+  const handleConfirmServe = () => {
+    if (actualAmount > currentBalance) {
+      if ((window as any).toast) {
+        (window as any).toast(`Cannot serve more than remaining balance (${currentBalance}ml)`, 'e');
+      }
       return;
     }
-    setFieldError(null);
-    setSubmitting(true);
-    try {
-      const result = await servePourRequest(pour.id, servedMl, staffNotes.trim() || null);
-      
-      const query = new URLSearchParams({
-        customer: result.userDisplayName || `Guest #${result.userId}`,
-        amount: String(result.servedMl),
-        bottle: result.bottleBrandName || 'Bottle',
-        balance: String(result.remainingMlAfterServe ?? 0),
+
+    const updatedState = { ...state };
+    
+    // Deduct wallet balance from Arjun's profile
+    if (updatedState.customerProfile) {
+      updatedState.customerProfile.wallets = updatedState.customerProfile.wallets.map(w => {
+        if (w.id === selectedWalletId) {
+          return { ...w, balance: Math.max(0, w.balance - actualAmount) };
+        }
+        return w;
       });
-
-      router.push(`/serve/success?${query.toString()}`);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 422) {
-        setFieldError('Wallet balance has changed — refresh and try again.');
-      } else {
-        setError(err instanceof Error ? err.message : 'Could not serve pour');
-      }
-    } finally {
-      setSubmitting(false);
     }
+
+    // Also deduct balance from tables if any matches (Table 2 Arjun M. is 338ml)
+    updatedState.tables = updatedState.tables.map(t => {
+      // Once pour request is complete, change state to occupied if it was pour-pending
+      if (t.id === pourRequest.tableId) {
+        return { ...t, status: 'occupied' as const, sessionTime: '45 min' };
+      }
+      return t;
+    });
+
+    // Remove from pour request queue
+    updatedState.pourQueue = updatedState.pourQueue.filter(q => q.id !== pourRequestId);
+
+    // Format local time
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Append to servedPours log
+    const shortBottleName = selectedWalletId === 1 ? 'JW Black Label' : 'Absolut Vodka';
+    updatedState.servedPours = [
+      {
+        time: timeStr,
+        table: `T${pourRequest.tableId}`,
+        customer: pourRequest.customer.replace(' Mehta', ' M.'),
+        bottle: shortBottleName,
+        amount: `${actualAmount}ml`
+      },
+      ...updatedState.servedPours
+    ];
+
+    // Update stats
+    updatedState.shiftStats = {
+      poursServed: updatedState.shiftStats.poursServed + 1,
+      totalMlServed: updatedState.shiftStats.totalMlServed + actualAmount,
+      uniqueCustomers: updatedState.shiftStats.uniqueCustomers,
+      avgServiceTime: '2.1 min',
+      walletDeductions: updatedState.shiftStats.walletDeductions + (actualAmount * 40) // Assume ₹40 per ml
+    };
+
+    saveTabletState(updatedState);
+
+    if ((window as any).toast) {
+      (window as any).toast(`✅ ${actualAmount}ml deducted. Arjun M. wallet updated in real time.`, 's');
+    }
+
+    // Route to success page
+    const query = new URLSearchParams({
+      customer: pourRequest.customer,
+      amount: String(actualAmount),
+      bottle: bottleName,
+      balance: String(currentBalance - actualAmount)
+    });
+    router.push(`/serve/success?${query.toString()}`);
   };
 
-  const handleReject = async () => {
-    if (!pour) return;
-    if (rejectReason.trim().length === 0) {
-      setFieldError('Reason is required.');
+  const handleConfirmCancel = () => {
+    if (!cancelReason.trim()) {
+      if ((window as any).toast) {
+        (window as any).toast('Please enter a cancellation reason', 'w');
+      }
       return;
     }
-    setFieldError(null);
-    setSubmitting(true);
-    try {
-      await rejectPourRequest(pour.id, rejectReason.trim());
-      router.push('/queue');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reject pour');
-    } finally {
-      setSubmitting(false);
+
+    const updatedState = { ...state };
+
+    // Remove from queue
+    updatedState.pourQueue = updatedState.pourQueue.filter(q => q.id !== pourRequestId);
+
+    // Reset table status from pour-pending to occupied or available
+    updatedState.tables = updatedState.tables.map(t => {
+      if (t.id === pourRequest.tableId) {
+        return { ...t, status: 'occupied' as const, sessionTime: '30 min' };
+      }
+      return t;
+    });
+
+    saveTabletState(updatedState);
+
+    if ((window as any).toast) {
+      (window as any).toast('× Pour request cancelled successfully', 'e');
     }
+
+    setShowCancelModal(false);
+    router.push('/queue');
   };
 
-  if (loading) {
-    return <p className="p-6 text-slate-400">Loading pour request…</p>;
-  }
-
-  if (error || !pour) {
-    return (
-      <div className="p-6 max-w-xl mx-auto">
-        <button onClick={() => router.back()} className="text-slate-400 hover:text-white text-sm mb-4">
-          ← Back
-        </button>
-        <p className="text-rose-400 bg-rose-950/40 border border-rose-900 rounded-md px-4 py-3">
-          {error ?? 'Pour request not found.'}
-        </p>
-      </div>
-    );
-  }
-
-  if (pour.status !== 'Pending') {
-    return (
-      <div className="p-6 max-w-xl mx-auto">
-        <button onClick={() => router.push('/queue')} className="text-slate-400 hover:text-white text-sm mb-4">
-          ← Back to queue
-        </button>
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center">
-          <p className="text-lg">This pour is already {pour.status.toLowerCase()}.</p>
-          <p className="text-sm text-slate-400 mt-1">No further action needed.</p>
-        </div>
-      </div>
-    );
-  }
+  const remainingAfterDeduct = currentBalance - actualAmount;
+  const isInsufficient = actualAmount > currentBalance;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto reveal">
-      <button onClick={() => router.back()} className="text-slate-400 hover:text-ink font-black text-[10px] flex items-center gap-1 mb-8 uppercase tracking-widest">
-        ← Back to Queue
-      </button>
+    <div className="p-6 max-w-7xl mx-auto reveal relative">
+      <header className="mb-8">
+        <Link href="/customer/lookup" className="text-xs font-black text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
+          ← Customer Lookup
+        </Link>
+        <h1 className="text-3xl font-black text-ink tracking-tighter mt-2">Serve & Deduct</h1>
+      </header>
 
-      <div className="panel p-10 shadow-lg bg-white">
-        <header className="text-center mb-10">
-          <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Service Validation</p>
-          <h1 className="text-4xl font-black text-ink tracking-tighter">
-            Table {pour.sessionId % 20} · {pour.userDisplayName ?? `Guest #${pour.userId}`}
-          </h1>
-        </header>
-
-        {/* Bottle Card */}
-        <div className="bg-slate-50/50 rounded-3xl p-8 border border-slate-100 mb-10">
-          <div className="flex items-center gap-6 mb-6">
-            <div className="w-20 h-20 bg-white rounded-[24px] flex items-center justify-center text-4xl shadow-sm border border-slate-100">
-               🍾
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Columns (Col Span 2): Pour Form */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Customer Info Card */}
+          <div className="bg-indigo-950 text-white p-6 rounded-[28px] flex items-center justify-between shadow-lg relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-indigo-600 rounded-[18px] flex items-center justify-center font-black text-xl border border-indigo-500/30">
+                A
+              </div>
+              <div>
+                <p className="font-black text-lg leading-none">{pourRequest.customer}</p>
+                <p className="text-xs text-indigo-300 font-bold uppercase tracking-wider mt-1.5">
+                  Table {pourRequest.tableId} · Pour request: {pourRequest.requestedAmount}ml
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="font-black text-2xl text-ink tracking-tight">{pour.bottleBrandName ?? 'Bottle'}</p>
-              <p className="text-xs text-muted font-bold uppercase tracking-wider">SipSave Digital Wallet</p>
-            </div>
-            <div className="text-right">
-              <p className="text-4xl font-black text-amber-700 tracking-tighter">338<span className="text-sm ml-1 text-slate-300">ml</span></p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Balance</p>
-            </div>
+            <span className="badge-tablet bg-rose-600 text-white font-black uppercase tracking-wider">
+              ⚠️ {pourRequest.waitTime} wait
+            </span>
           </div>
-          <div className="w-full h-3 bg-white border border-slate-100 rounded-full overflow-hidden mb-2">
-            <div 
-              className="h-full bg-amber-500 shadow-glow transition-all duration-1000" 
-              style={{ width: `${(338 / 750) * 100}%` }}
-            ></div>
-          </div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Original: 750ml</p>
-        </div>
 
-        {/* Amount Selector */}
-        <div className="mb-12 text-center">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-6">Amount to Serve</label>
-          <div className="flex justify-center gap-4 mb-8">
-            {[30, 60, 90, 120].map((ml) => (
-              <button
-                key={ml}
-                onClick={() => setServedMl(ml)}
-                className={`w-16 h-16 rounded-2xl font-black text-lg transition-all border-2 ${servedMl === ml ? 'bg-slate-950 text-white border-slate-950 shadow-glow scale-110' : 'bg-white text-slate-400 border-slate-100 hover:border-amber-300'}`}
+          {/* Form Panel */}
+          <div className="panel p-8 bg-white border border-slate-200 rounded-[32px] space-y-6">
+            {/* Wallet Dropdown */}
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Wallet / Bottle *</label>
+              <select
+                value={selectedWalletId}
+                onChange={(e) => {
+                  setSelectedWalletId(Number(e.target.value));
+                  setActualAmount(Number(e.target.value) === 1 ? 60 : 30);
+                }}
+                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold text-sm outline-none focus:border-indigo-500 transition-all cursor-pointer shadow-sm"
               >
-                {ml}
+                <option value={1}>Johnnie Walker Black Label — 338ml remaining</option>
+                <option value={2}>Absolut Vodka — 168ml remaining</option>
+              </select>
+            </div>
+
+            {/* Info box */}
+            <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl flex gap-3 text-xs">
+              <span>⚡</span>
+              <p className="font-bold text-indigo-900 uppercase">
+                User requested: <span className="font-black text-indigo-600 underline">{pourRequest.requestedAmount} ml</span>. Confirm actual amount poured below.
+              </p>
+            </div>
+
+            {/* Quick Amount Buttons */}
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Quick Select (ml)</label>
+              <div className="grid grid-cols-4 gap-4">
+                {[30, 60, 90, 120].map((amt) => {
+                  const isActive = actualAmount === amt;
+                  return (
+                    <button
+                      key={amt}
+                      onClick={() => handleQuickAmountClick(amt)}
+                      className={`btn-tablet justify-center py-4 rounded-2xl font-black text-lg ${isActive ? 'btn-tablet-p shadow-glow' : 'btn-tablet-s border border-slate-200'}`}
+                    >
+                      {amt} {isActive ? '✓' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Actual Amount Input */}
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Actual Amount Served (ml) *</label>
+              <input
+                type="number"
+                min={1}
+                max={currentBalance}
+                value={actualAmount}
+                onChange={(e) => setActualAmount(Math.max(0, Number(e.target.value)))}
+                className="w-full bg-white border-2 border-slate-100 rounded-2xl p-5 text-center font-black text-4xl focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+
+            {/* Insufficient Balance Alert */}
+            {isInsufficient && (
+              <div className="panel bg-rose-50 border border-rose-200 p-5 rounded-2xl flex gap-4 text-xs">
+                <span className="text-2xl">❌</span>
+                <div>
+                  <p className="font-black text-rose-800 uppercase mb-1">Insufficient balance</p>
+                  <p className="text-rose-700 font-bold leading-relaxed uppercase">
+                    Customer only has {currentBalance}ml. Cannot serve more than remaining balance.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Balance Preview */}
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 space-y-4">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <span>Current balance</span>
+                <span>{currentBalance} ml</span>
+              </div>
+              <div className="flex justify-between items-center text-xs font-bold text-rose-600 uppercase tracking-wider">
+                <span>Amount to deduct</span>
+                <span>− {actualAmount} ml</span>
+              </div>
+              <div className="h-px bg-slate-200"></div>
+              <div className="flex justify-between items-center text-sm font-black text-indigo-950 uppercase tracking-wider">
+                <span>New balance</span>
+                <span className="text-2xl font-black text-indigo-600">{Math.max(0, remainingAfterDeduct)} ml</span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={handleConfirmServe}
+                disabled={isInsufficient || actualAmount <= 0}
+                className="btn-tablet btn-tablet-g w-full justify-center py-5 text-lg font-black uppercase shadow-lg shadow-emerald-100/50"
+              >
+                ✅ Confirm Served & Deduct Wallet
               </button>
-            ))}
-          </div>
-          <div className="flex items-center justify-center gap-3">
-             <span className="text-6xl font-black text-ink tracking-tighter">{servedMl}</span>
-             <span className="text-xl font-black text-slate-200">ML</span>
-          </div>
-          <p className="text-[10px] text-amber-600 mt-3 font-black uppercase tracking-widest">Customer requested {pour.requestedMl}ml</p>
-        </div>
-
-        {fieldError && (
-          <div className="mb-8 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-[11px] font-black text-center uppercase tracking-widest">
-            ⚠️ {fieldError}
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <button
-            onClick={handleServe}
-            disabled={submitting}
-            className="btn-tablet btn-tablet-g w-full justify-center py-6 text-xl shadow-xl shadow-emerald-100 font-black"
-          >
-            {submitting ? '...' : `Confirm & Deduct Wallet`}
-          </button>
-          
-          <div className="flex gap-4">
-            <button
-              onClick={() => setShowReject(!showReject)}
-              disabled={submitting}
-              className="flex-1 btn-tablet btn-tablet-s !text-rose-600 !bg-white !border-rose-100 justify-center font-bold"
-            >
-              Cancel Request
-            </button>
-            <button
-               onClick={() => router.back()}
-              className="flex-1 btn-tablet btn-tablet-s !text-slate-400 !bg-white justify-center font-bold"
-            >
-              Go Back
-            </button>
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="btn-tablet btn-tablet-r w-full justify-center py-4 text-sm font-bold uppercase"
+              >
+                × Cancel This Pour Request
+              </button>
+            </div>
           </div>
         </div>
 
-        {showReject && (
-          <div className="mt-8 pt-8 border-t border-slate-100 animate-in slide-in-from-top-4">
-            <label className="text-[10px] font-black text-rose-600 uppercase tracking-widest block mb-3">Cancellation Reason</label>
+        {/* Right Column: Confirmation Preview & Log */}
+        <div className="space-y-6">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Confirmation Preview</h3>
+
+          {/* Preview Card */}
+          <div className="panel p-6 bg-white border border-slate-200 rounded-[28px] space-y-4 shadow-sm">
+            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">Pour Summary</p>
+            <div className="flex justify-between text-xs font-bold uppercase text-slate-500 tracking-wider">
+              <span>Customer</span>
+              <span className="text-indigo-950 font-black">{pourRequest.customer}</span>
+            </div>
+            <div className="flex justify-between text-xs font-bold uppercase text-slate-500 tracking-wider">
+              <span>Table</span>
+              <span className="text-indigo-950 font-black">Table {pourRequest.tableId}</span>
+            </div>
+            <div className="flex justify-between text-xs font-bold uppercase text-slate-500 tracking-wider">
+              <span>Bottle</span>
+              <span className="text-indigo-950 font-black truncate max-w-[150px]">{bottleName}</span>
+            </div>
+            <div className="flex justify-between text-xs font-bold uppercase text-slate-500 tracking-wider">
+              <span>Amount to serve</span>
+              <span className="text-indigo-600 font-black text-base">{actualAmount} ml</span>
+            </div>
+            <div className="h-px bg-slate-100"></div>
+            <div className="flex justify-between items-baseline text-xs font-bold uppercase text-slate-500 tracking-wider">
+              <span>New balance</span>
+              <span className="text-lg font-black text-indigo-950">{Math.max(0, remainingAfterDeduct)} ml</span>
+            </div>
+          </div>
+
+          {/* Info banner */}
+          <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl flex gap-3 text-xs">
+            <span>⚡</span>
+            <p className="font-bold text-blue-800 leading-relaxed uppercase">
+              Wallet deduction happens <strong>only after you tap "Confirm Served"</strong>. The user's app updates in real-time via WebSocket.
+            </p>
+          </div>
+
+          {/* Past session activity */}
+          <div className="panel p-6 bg-slate-50/50 rounded-[28px] space-y-4">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Session Activity Tonight</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-600">
+                <span>9:35 PM · 90ml JW Black</span>
+                <span className="text-emerald-600">Served ✓</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-600">
+                <span>9:18 PM · 60ml JW Black</span>
+                <span className="text-emerald-600">Served ✓</span>
+              </div>
+              <div className="h-px bg-slate-200 my-2"></div>
+              <p className="text-[10px] font-black text-indigo-900 uppercase">
+                Total consumed tonight: <span className="underline">150ml</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Bartender Service Notes */}
+          <div className="panel p-6 bg-amber-50/20 border border-amber-100 rounded-[28px] space-y-3">
+            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Bartender Service Notes</p>
             <textarea
-              rows={2}
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-sm font-bold focus:border-rose-300 outline-none transition-all mb-4"
-              placeholder="e.g. Out of stock, customer not at table"
+              value={staffNotes}
+              onChange={(e) => setStaffNotes(e.target.value)}
+              className="w-full bg-white border border-amber-100 rounded-2xl p-4 text-xs font-bold focus:border-amber-400 outline-none transition-all shadow-sm h-20"
+              placeholder="e.g. Added extra ice, garnish..."
             />
-            <button
-              onClick={handleReject}
-              disabled={submitting}
-              className="btn-tablet btn-tablet-r w-full justify-center py-4 font-black"
-            >
-              {submitting ? '...' : 'Confirm Cancellation'}
-            </button>
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="mt-10 panel p-8 bg-amber-50/30 border-amber-100">
-         <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-4">Bartender Service Notes</p>
-         <textarea
-            value={staffNotes}
-            onChange={(e) => setStaffNotes(e.target.value)}
-            className="w-full bg-white border border-amber-200 rounded-2xl p-5 text-sm font-bold focus:border-amber-400 outline-none transition-all shadow-sm"
-            placeholder="Optional notes about this service (e.g. Added extra ice, garnish)..."
-         />
-      </div>
+      {/* Cancel Modal Overlay */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-slate-950/60 z-[9999] flex items-center justify-center p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">🛑</span>
+              <h3 className="text-xl font-black text-rose-600 tracking-tight">Cancel Pour Request</h3>
+            </div>
+            
+            <p className="text-xs text-slate-500 font-bold mb-6 uppercase tracking-wide leading-relaxed">
+              Are you sure you want to cancel the 60ml pour request for Arjun M. at Table {pourRequest.tableId}?
+            </p>
+
+            <div className="mb-6">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Cancellation Reason *</label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Customer out of seat, order cancelled by guest..."
+                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-rose-400 outline-none transition-all h-24"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={handleConfirmCancel}
+                className="btn-tablet btn-tablet-r justify-center py-3 text-xs uppercase"
+              >
+                Confirm Cancel
+              </button>
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="btn-tablet btn-tablet-s justify-center py-3 text-xs uppercase"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
