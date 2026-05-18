@@ -250,6 +250,16 @@ export type BarDetails = {
 export const getBarDetails = () =>
   request<BarDetails>('/api/v1/bars/details');
 
+export type BarTableDto = {
+  id: number;
+  barId: number;
+  tableNumber: string;
+  qrToken: string;
+};
+
+export const listBarTables = (barId: number) =>
+  request<BarTableDto[]>(`/api/v1/bars/${barId}/tables`);
+
 // ---------------------------------------------------------------------------
 //  Inventory endpoints (mirrors InventoryItemDto on the server)
 // ---------------------------------------------------------------------------
