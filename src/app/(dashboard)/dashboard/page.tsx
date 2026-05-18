@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getActiveBarId, setActiveBarDetails } from '@/lib/active-bar';
+import { setActiveBarDetails } from '@/lib/active-bar';
 import {
   ApiError,
   getDashboard,
   getBarDetails,
+  listBarTables,
   downloadRevenueExport,
+  type BarTableDto,
   type DashboardDto,
 } from '@/lib/api-client';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -21,6 +24,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrTables, setQrTables] = useState<BarTableDto[]>([]);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
 
   useEffect(() => {
     void init();
@@ -60,9 +67,13 @@ export default function DashboardPage() {
         return;
       }
 
-      // 2. Load Dashboard Data
-      const dashboardData = await getDashboard(bar.barId);
+      // 2. Load Dashboard + table QR data for the active bar
+      const [dashboardData, tableData] = await Promise.all([
+        getDashboard(bar.barId),
+        loadQrTables(bar.barId),
+      ]);
       setData(dashboardData);
+      setQrTables(tableData);
     } catch (err) {
       console.error('Dashboard load error:', err);
       if (err instanceof ApiError && err.status === 401) {
@@ -85,6 +96,29 @@ export default function DashboardPage() {
       alert('Failed to export report. Please try again later.');
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function loadQrTables(activeBarId = barId): Promise<BarTableDto[]> {
+    if (!activeBarId) return [];
+    try {
+      setQrLoading(true);
+      setQrError(null);
+      const tables = await listBarTables(activeBarId);
+      return tables;
+    } catch (err) {
+      console.error('QR table load error:', err);
+      setQrError(err instanceof ApiError ? err.message : 'Failed to load table QR codes');
+      return [];
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
+  async function openQrModal() {
+    setShowQrModal(true);
+    if (barId && qrTables.length === 0 && !qrLoading) {
+      setQrTables(await loadQrTables(barId));
     }
   }
 
@@ -113,6 +147,70 @@ export default function DashboardPage() {
 
   const { kpis, revenueChart, topBottles, recentTransactions, subscription } = data;
 
+  const handleDownloadPDF = () => {
+    if (qrTables.length === 0) return;
+    const printWindow = window.open('', '', 'width=800,height=800');
+    if (!printWindow) {
+      alert('Please allow popups to download the PDF.');
+      return;
+    }
+
+    const svgElements = document.querySelectorAll('.qr-code-svg');
+    
+    let content = `
+      <html>
+        <head>
+          <title>Bar QR Codes - SipSave</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e1e26; }
+            .header { text-align: center; margin-bottom: 40px; padding: 20px; border-bottom: 2px solid #f3f4f6; }
+            .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; padding: 20px; }
+            .card { border: 2px dashed #e5e7eb; border-radius: 16px; padding: 30px; text-align: center; page-break-inside: avoid; }
+            .table-name { font-size: 24px; font-weight: bold; margin: 16px 0 8px; color: #1e1b4b; }
+            .token { font-family: monospace; font-size: 10px; color: #6b7280; word-break: break-all; }
+            .instructions { font-size: 14px; color: #6b7280; margin-top: 10px; }
+            @media print {
+              @page { margin: 20mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>SipSave Table QR Codes</h1>
+            <p class="instructions">Print and place these QR codes on each table. Customers scan them to check in.</p>
+          </div>
+          <div class="grid">
+    `;
+
+    qrTables.forEach((table, index) => {
+      const svg = svgElements[index]?.outerHTML || '';
+      content += `
+        <div class="card">
+          ${svg}
+          <div class="table-name">${escapeHtml(table.tableNumber)}</div>
+          <div class="token">${escapeHtml(table.qrToken)}</div>
+        </div>
+      `;
+    });
+
+    content += `
+          </div>
+          <script>
+            window.onload = () => { 
+              setTimeout(() => {
+                window.print(); 
+                window.close(); 
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-8 pb-12">
       {/* Page Header */}
@@ -127,7 +225,7 @@ export default function DashboardPage() {
             Subscription Active
           </div>
           <button 
-            onClick={() => alert('View Bar QR Codes feature coming soon')}
+            onClick={openQrModal}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-lg shadow-sm text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
           >
             <IconQrCode className="h-4 w-4 text-slate-500" />
@@ -367,6 +465,80 @@ export default function DashboardPage() {
           Restore Subscription
         </button>
       </footer>
+
+      {/* Bar QR Codes Modal */}
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-ink">Bar QR Codes</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Print and place these QR codes on each table. Customers scan them to check in via the SipSave app.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowQrModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto flex-1">
+              {qrLoading ? (
+                <div className="py-16 text-center text-sm font-semibold text-slate-500">
+                  Loading table QR codes...
+                </div>
+              ) : qrError ? (
+                <div className="rounded-xl border border-danger/20 bg-danger-tint p-5 text-center">
+                  <p className="text-sm font-bold text-danger">{qrError}</p>
+                  <button
+                    onClick={async () => setQrTables(await loadQrTables(barId))}
+                    className="mt-4 btn btn-sm bg-danger text-white hover:bg-danger/90"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : qrTables.length === 0 ? (
+                <div className="py-16 text-center text-sm font-semibold text-slate-500">
+                  No tables found for this bar yet.
+                </div>
+              ) : (
+                <div className="flex flex-wrap justify-center gap-8">
+                  {qrTables.map(table => (
+                    <div key={table.id} className="flex flex-col items-center bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
+                        <QRCodeSVG 
+                          className="qr-code-svg"
+                          value={`https://app.sipsave.com/t/${table.qrToken}`} 
+                          size={150}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <p className="font-bold text-ink-2 text-lg">{table.tableNumber}</p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-1 w-32 truncate text-center" title={table.qrToken}>
+                        {table.qrToken}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-center">
+              <button 
+                disabled={qrTables.length === 0 || qrLoading}
+                className="btn btn-primary w-full max-w-md bg-[#5e5ce6] hover:bg-[#4a48c9] text-white py-3 rounded-lg font-bold shadow-md shadow-indigo-200"
+                onClick={handleDownloadPDF}
+              >
+                Download All QR Codes (PDF)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -436,6 +608,15 @@ function formatCompactCurrency(paise: number) {
 function getUserColor(id: number) {
   const colors = ['bg-orange-500', 'bg-blue-600', 'bg-slate-500', 'bg-indigo-700', 'bg-violet-600'];
   return colors[id % colors.length];
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 // Icons
