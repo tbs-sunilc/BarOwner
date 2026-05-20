@@ -73,49 +73,72 @@ export function usePourHub(barId: number | null, handlers: PourHubHandlers) {
   useEffect(() => {
     if (barId == null) return;
 
-    const token = typeof window !== 'undefined'
-      ? window.sessionStorage.getItem('sipsave-barowner-access-token')
-      : null;
-    if (!token) {
+    const candidateTokens = typeof window !== 'undefined'
+      ? [
+          window.sessionStorage.getItem('sipsave-staff-access-token'),
+          window.sessionStorage.getItem('sipsave-barowner-access-token'),
+        ].filter((value): value is string => Boolean(value))
+      : [];
+    if (candidateTokens.length === 0) {
       setConnectionState(HubConnectionState.Disconnected);
       return;
     }
 
-    const conn = new HubConnectionBuilder()
-      .withUrl(`${HUB_BASE}/hubs/pour`, { accessTokenFactory: () => token })
-      .withAutomaticReconnect({ nextRetryDelayInMilliseconds: () => 2_000 })
-      .configureLogging(LogLevel.Warning)
-      .build();
+    let disposed = false;
 
-    conn.on('NewPourRequest', (evt: NewPourRequestEvent) =>
-      handlersRef.current.onNewPourRequest?.(evt));
-    conn.on('PourConfirmed', (evt: PourConfirmedEvent) =>
-      handlersRef.current.onPourConfirmed?.(evt));
-    conn.on('PourCancelled', (evt: PourCancelledEvent) =>
-      handlersRef.current.onPourCancelled?.(evt));
+    const wireConnection = (conn: HubConnection) => {
+      conn.on('NewPourRequest', (evt: NewPourRequestEvent) =>
+        handlersRef.current.onNewPourRequest?.(evt));
+      conn.on('PourConfirmed', (evt: PourConfirmedEvent) =>
+        handlersRef.current.onPourConfirmed?.(evt));
+      conn.on('PourCancelled', (evt: PourCancelledEvent) =>
+        handlersRef.current.onPourCancelled?.(evt));
 
-    conn.onreconnecting(() => setConnectionState(HubConnectionState.Reconnecting));
-    conn.onreconnected(async () => {
-      setConnectionState(HubConnectionState.Connected);
-      try { await conn.invoke('JoinBarGroup', barId); } catch { /* ignore */ }
-    });
-    conn.onclose(() => setConnectionState(HubConnectionState.Disconnected));
+      conn.onreconnecting(() => setConnectionState(HubConnectionState.Reconnecting));
+      conn.onreconnected(async () => {
+        try {
+          await conn.invoke('JoinBarGroup', barId);
+          setConnectionState(HubConnectionState.Connected);
+        } catch {
+          setConnectionState(HubConnectionState.Disconnected);
+          await conn.stop().catch(() => undefined);
+        }
+      });
+      conn.onclose(() => setConnectionState(HubConnectionState.Disconnected));
+    };
 
     (async () => {
-      try {
-        await conn.start();
-        await conn.invoke('JoinBarGroup', barId);
-        setConnectionState(HubConnectionState.Connected);
-      } catch (err) {
-        console.warn('PourHub connect failed', err);
-        setConnectionState(HubConnectionState.Disconnected);
+      for (const token of candidateTokens) {
+        if (disposed) return;
+        const conn = new HubConnectionBuilder()
+          .withUrl(`${HUB_BASE}/hubs/pour`, { accessTokenFactory: () => token })
+          .withAutomaticReconnect({ nextRetryDelayInMilliseconds: () => 2_000 })
+          .configureLogging(LogLevel.Warning)
+          .build();
+        wireConnection(conn);
+        try {
+          await conn.start();
+          await conn.invoke('JoinBarGroup', barId);
+          if (disposed) {
+            await conn.stop().catch(() => undefined);
+            return;
+          }
+          connectionRef.current = conn;
+          setConnectionState(HubConnectionState.Connected);
+          return;
+        } catch {
+          await conn.stop().catch(() => undefined);
+        }
       }
+      setConnectionState(HubConnectionState.Disconnected);
+      console.warn('PourHub connect failed for all available tokens.');
     })();
 
-    connectionRef.current = conn;
     return () => {
+      disposed = true;
+      const current = connectionRef.current;
       connectionRef.current = null;
-      conn.stop().catch(() => undefined);
+      if (current) current.stop().catch(() => undefined);
     };
   }, [barId]);
 

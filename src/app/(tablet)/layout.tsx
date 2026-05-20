@@ -13,15 +13,11 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
   const [bartenderName, setBartenderName] = useState('Rahul Sharma');
 
   useEffect(() => {
-    // Read logged-in staff name if available
     if (typeof window !== 'undefined') {
       const staffName = window.sessionStorage.getItem('sipsave-staff-full-name');
-      if (staffName) {
-        setBartenderName(staffName);
-      }
+      if (staffName) setBartenderName(staffName);
     }
 
-    // Set up global toast helper
     (window as any).toast = (message: string, type: 's' | 'e' | 'i' | 'w' = 's') => {
       const id = Math.random().toString();
       setToasts((prev) => [...prev, { id, message, type }]);
@@ -32,28 +28,30 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+    <div className="min-h-screen bg-ivory text-ink font-sans">
       <style jsx global>{`
-        /* Clean Professional Buttons */
         .btn-tablet {
-          @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all active:scale-95;
+          @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all active:scale-95 border;
         }
-        .btn-tablet-p { @apply bg-indigo-600 text-white hover:bg-indigo-700; }
-        .btn-tablet-s { @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50; }
-        .btn-tablet-g { @apply bg-emerald-600 text-white hover:bg-emerald-700; }
-        .btn-tablet-r { @apply bg-rose-600 text-white hover:bg-rose-700; }
-        .btn-tablet-a { @apply bg-amber-500 text-white hover:bg-amber-600; }
+        .btn-tablet-p { @apply bg-ink text-ivory border-[color:var(--color-accent-lo)] hover:bg-ink-2; box-shadow: var(--shadow-glow); }
+        .btn-tablet-s { @apply bg-white text-[color:var(--color-text)] border-[color:var(--color-border)] hover:bg-ivory-2; }
+        .btn-tablet-g { @apply text-white border-transparent; background: var(--color-success); }
+        .btn-tablet-g:hover { background: #2d5c45; }
+        .btn-tablet-r { @apply text-white border-transparent; background: var(--color-danger); }
+        .btn-tablet-r:hover { background: #7a2522; }
+        .btn-tablet-a { @apply text-[color:var(--color-ink)] border-transparent; background: var(--color-accent); }
+        .btn-tablet-a:hover { background: var(--color-accent-hi); }
 
         .badge-tablet {
-          @apply px-2.5 py-0.5 rounded-md text-[11px] font-bold tracking-wide;
+          @apply px-2.5 py-0.5 rounded-md text-[11px] font-bold tracking-wide border;
+          border-color: var(--color-border);
         }
 
-        /* Clean Floor Tiles */
         .ftile {
-          @apply bg-white border-2 border-slate-200 rounded-xl p-4 cursor-pointer transition-all text-center hover:-translate-y-0.5 hover:shadow-md;
+          @apply bg-white border rounded-xl p-4 cursor-pointer transition-all text-center hover:-translate-y-0.5 hover:shadow-md;
+          border-color: var(--color-border);
         }
 
-        /* Toast animation */
         @keyframes slideIn {
           from { transform: translateX(120%); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
@@ -63,33 +61,32 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
         }
       `}</style>
 
-      {/* Header exactly matching myconfusion.txt specs */}
-      <header className="h-[64px] bg-[#312e81] px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+      <header className="h-[64px] bg-ink px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm border-b border-[color:var(--color-ink-3)]">
         <div className="flex items-center gap-6">
           <Link href="/floor" className="flex items-center gap-3">
             <span className="text-2xl"></span>
             <div>
-              <p className="text-white font-bold text-lg leading-tight">Sky Lounge</p>
-              <p className="text-[#a5b4fc] text-xs font-medium">{bartenderName} · Shift started 6:00 PM</p>
+              <p className="text-[color:var(--color-text-invert)] font-bold text-lg leading-tight">Sky Lounge</p>
+              <p className="text-[color:var(--color-text-soft)] text-xs font-medium">{bartenderName} · Shift started 6:00 PM</p>
             </div>
           </Link>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/queue" className="btn-tablet bg-white/10 text-white hover:bg-white/20 border border-white/10 !py-1.5 !px-4">
+          <Link href="/queue" className="btn-tablet bg-ink-2 text-[color:var(--color-text-invert)] hover:bg-ink-3 border-[color:var(--color-ink-3)] !py-1.5 !px-4">
             Pour Queue
           </Link>
-          <Link href="/floor" className="btn-tablet bg-white/10 text-white hover:bg-white/20 border border-white/10 !py-1.5 !px-4">
+          <Link href="/floor" className="btn-tablet bg-ink-2 text-[color:var(--color-text-invert)] hover:bg-ink-3 border-[color:var(--color-ink-3)] !py-1.5 !px-4">
             Floor Plan
           </Link>
-          <Link href="/customer/lookup" className="btn-tablet bg-white/10 text-white hover:bg-white/20 border border-white/10 !py-1.5 !px-4">
+          <Link href="/customer/lookup" className="btn-tablet bg-ink-2 text-[color:var(--color-text-invert)] hover:bg-ink-3 border-[color:var(--color-ink-3)] !py-1.5 !px-4">
             Lookup
           </Link>
-          <Link href="/orders" className="btn-tablet bg-white/10 text-white hover:bg-white/20 border border-white/10 !py-1.5 !px-4">
+          <Link href="/orders" className="btn-tablet bg-ink-2 text-[color:var(--color-text-invert)] hover:bg-ink-3 border-[color:var(--color-ink-3)] !py-1.5 !px-4">
             Orders
           </Link>
-          <div className="w-px h-6 bg-white/20 mx-2"></div>
-          <Link href="/shift" className="btn-tablet bg-rose-600 hover:bg-rose-700 text-white border-none !py-1.5 !px-4">
+          <div className="w-px h-6 bg-[color:var(--color-ink-3)] mx-2"></div>
+          <Link href="/shift" className="btn-tablet btn-tablet-r !py-1.5 !px-4">
             End Shift
           </Link>
         </div>
@@ -99,14 +96,13 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      {/* Global Toast Render Container */}
       <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none">
         {toasts.map((t) => {
           const bgClass =
-            t.type === 's' ? 'bg-[#16a34a]' :
-            t.type === 'e' ? 'bg-[#e11d48]' :
-            t.type === 'w' ? 'bg-[#d97706]' :
-            'bg-[#0369a1]';
+            t.type === 's' ? 'bg-[color:var(--color-success)]' :
+            t.type === 'e' ? 'bg-[color:var(--color-danger)]' :
+            t.type === 'w' ? 'bg-[color:var(--color-accent-lo)]' :
+            'bg-[color:var(--color-info)]';
 
           return (
             <div
@@ -122,4 +118,3 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
