@@ -48,6 +48,12 @@ function safeParse(s: string): unknown {
   try { return JSON.parse(s); } catch { return s; }
 }
 
+function assertValidBarId(barId: number): void {
+  if (!Number.isInteger(barId) || barId <= 0) {
+    throw new Error(`Invalid barId: ${barId}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 //  Auth endpoints (bar-owner OTP sign-in)
 // ---------------------------------------------------------------------------
@@ -830,10 +836,16 @@ export type CreateBarTableSpec = {
 };
 
 export const listBarTables = (barId: number) =>
-  request<BarTable[]>(`/api/v1/bars/${barId}/tables`);
+{
+  assertValidBarId(barId);
+  return request<BarTable[]>(`/api/v1/bars/${barId}/tables`);
+};
 
 export const listBarTablesWithStatus = (barId: number) =>
-  request<BarTableStatusDto[]>(`/api/v1/bars/${barId}/tables/availability`);
+{
+  assertValidBarId(barId);
+  return request<BarTableStatusDto[]>(`/api/v1/bars/${barId}/tables/availability`);
+};
 
 export const createBarTables = (barId: number, tables: CreateBarTableSpec[]) =>
   request<BarTable[]>(`/api/v1/bars/${barId}/tables`, {
