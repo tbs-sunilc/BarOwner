@@ -193,6 +193,45 @@ const DEFAULT_STATE: TabletState = {
   handoverNotes: ''
 };
 
+/**
+ * Fetch live table availability from the API.
+ * Falls back to mock data if the request fails.
+ */
+export async function fetchLiveTableStatus(barId: number): Promise<TableState[]> {
+  try {
+    const { listBarTablesWithStatus } = await import('./api-client');
+    const apiTables = await listBarTablesWithStatus(barId);
+    
+    return apiTables.map(t => ({
+      id: t.id,
+      status: mapApiStatusToTableStatus(t.status),
+      guests: t.activeGuestCount || 0,
+      sessionTime: t.sessionTimeLabel || '',
+      customerName: t.customerName || undefined,
+      details: t.reservationDetails || undefined
+    }));
+  } catch (error) {
+    console.warn('Failed to fetch live table status, using mock data:', error);
+    // Fall back to mock data from DEFAULT_STATE
+    return DEFAULT_STATE.tables;
+  }
+}
+
+function mapApiStatusToTableStatus(apiStatus: string): 'occupied' | 'pour-pending' | 'available' | 'reserved' {
+  // Map backend status to frontend status
+  switch (apiStatus.toLowerCase()) {
+    case 'occupied':
+      return 'occupied';
+    case 'pourpending':
+      return 'pour-pending';
+    case 'reserved':
+      return 'reserved';
+    case 'available':
+    default:
+      return 'available';
+  }
+}
+
 export function getTabletState(): TabletState {
   if (typeof window === 'undefined') return DEFAULT_STATE;
   const stateStr = window.localStorage.getItem('sipsave_tablet_state');

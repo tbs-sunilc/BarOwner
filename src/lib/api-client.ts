@@ -1,11 +1,11 @@
 /**
- * Thin SipSave API client. Reads `NEXT_PUBLIC_API_URL` (default http://192.168.1.161:5000)
+ * Thin SipSave API client. Reads `NEXT_PUBLIC_API_URL` (default http://192.168.1.239:5000)
  * and forwards an Authorization header from sessionStorage when present (the bar-owner
  * login flow lands the JWT there in Phase 8). Throws an `ApiError` with the parsed
  * problem+json body so callers can render the right banner.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.232:5000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.239:5000';
 
 export class ApiError extends Error {
   status: number;
@@ -255,6 +255,23 @@ export type BarTableDto = {
   barId: number;
   tableNumber: string;
   qrToken: string;
+};
+
+export type BarTableStatusDto = {
+  id: number;
+  barId: number;
+  tableNumber: string;
+  qrToken: string;
+  capacity: number | null;
+  floorSection: string | null;
+  isActive: boolean;
+  createdAtUtc: string;
+  status: 'Available' | 'Occupied' | 'Reserved' | 'PourPending';
+  sessionId: number | null;
+  activeGuestCount: number | null;
+  customerName: string | null;
+  sessionTimeLabel: string | null;
+  reservationDetails: string | null;
 };
 
 
@@ -814,6 +831,9 @@ export type CreateBarTableSpec = {
 
 export const listBarTables = (barId: number) =>
   request<BarTable[]>(`/api/v1/bars/${barId}/tables`);
+
+export const listBarTablesWithStatus = (barId: number) =>
+  request<BarTableStatusDto[]>(`/api/v1/bars/${barId}/tables/availability`);
 
 export const createBarTables = (barId: number, tables: CreateBarTableSpec[]) =>
   request<BarTable[]>(`/api/v1/bars/${barId}/tables`, {

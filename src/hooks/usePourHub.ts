@@ -59,7 +59,7 @@ export type PourHubHandlers = {
   onPourCancelled?: (evt: PourCancelledEvent) => void;
 };
 
-const HUB_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.161:5000';
+const HUB_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.239:5000';
 
 export function usePourHub(barId: number | null, handlers: PourHubHandlers) {
   const [connectionState, setConnectionState] = useState<HubConnectionState>(

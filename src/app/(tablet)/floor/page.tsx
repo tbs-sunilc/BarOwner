@@ -3,14 +3,56 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getTabletState, TabletState, saveTabletState } from '@/lib/tablet-state';
+import { getTabletState, TabletState, saveTabletState, fetchLiveTableStatus } from '@/lib/tablet-state';
+import { getActiveBarId } from '@/lib/active-bar';
 
 export default function FloorPage() {
   const router = useRouter();
   const [state, setState] = useState<TabletState | null>(null);
+  const [isLoadingLiveData, setIsLoadingLiveData] = useState(false);
 
   useEffect(() => {
-    setState(getTabletState());
+    const loadData = async () => {
+      // Get initial state from localStorage
+      const initialState = getTabletState();
+      setState(initialState);
+
+      // Try to fetch live table data from API
+      setIsLoadingLiveData(true);
+      try {
+        const barId = getActiveBarId();
+        if (barId) {
+          const liveTables = await fetchLiveTableStatus(barId);
+          // Update the state with live table data
+          const updatedState = { ...initialState, tables: liveTables };
+          setState(updatedState);
+          // Optionally save the updated state
+          saveTabletState(updatedState);
+        }
+      } catch (error) {
+        console.error('Error loading live table status:', error);
+        // State already set to initialState above
+      } finally {
+        setIsLoadingLiveData(false);
+      }
+    };
+
+    loadData();
+
+    // Set up periodic refresh (every 10 seconds)
+    const interval = setInterval(async () => {
+      try {
+        const barId = getActiveBarId();
+        if (barId) {
+          const liveTables = await fetchLiveTableStatus(barId);
+          setState(prev => prev ? { ...prev, tables: liveTables } : null);
+        }
+      } catch (error) {
+        console.error('Error refreshing table status:', error);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   if (!state) {
