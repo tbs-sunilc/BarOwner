@@ -233,7 +233,7 @@ export default function BarOwnerLoginPage() {
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
                 Secure OTP sign-in
               </p>
-              <h1 className="mt-2 font-display text-4xl leading-tight text-ink">Welcome back.</h1>
+              <h1 className="mt-2 font-display text-4xl leading-tight text-ink">Owner Login</h1>
               <span className="gold-rule mb-3 mt-3" aria-hidden="true" />
               <p className="text-sm text-muted">
                 Verify your registered owner mobile number to access the dashboard.
