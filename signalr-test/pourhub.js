@@ -1,7 +1,10 @@
 const signalR = require("@microsoft/signalr");
+require('dotenv').config();
 
 const apiBaseUrl = process.env.API_URL || "http://192.168.1.232:5000";
 const barId = Number(process.argv[2] || process.env.BAR_ID || 1);
+console.log(`Using API URL: ${apiBaseUrl}`);
+console.log(`Using barId: ${barId}`);
 
 const staffToken = process.env.STAFF_TOKEN || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEwMDUsIm1vYmlsZSI6Iis5MTEyMzQ1Njc4OTAiLCJreWNfc3RhdHVzIjoiQXBwcm92ZWQiLCJqdGkiOiIyMTFiODllMzdhODg0Zjc5YTdmMjlmOThkZDljZTRlYiIsImlhdCI6MTc3OTE4NTg5MywiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoic3RhZmYiLCJuYmYiOjE3NzkxODU4OTMsImV4cCI6MTc3OTE4OTQ5MywiaXNzIjoiU2lwU2F2ZSIsImF1ZCI6IlNpcFNhdmUuQ2xpZW50cyJ9.sMehBMIzIitRTYofaMnO__pFHEKNhYyXKK-5E6TSORI";
 const userToken = process.env.USER_TOKEN || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIwMTksIm1vYmlsZSI6Ijk4Nzk4Nzk4NzAiLCJreWNfc3RhdHVzIjoiQXBwcm92ZWQiLCJqdGkiOiIxMDNiMGNhNTJhYTE0MmY1YWMyMTEzODYwNTFlODRmNyIsImlhdCI6MTc3OTE4NjExNywibmJmIjoxNzc5MTg2MTE3LCJleHAiOjE3NzkxODk3MTcsImlzcyI6IlNpcFNhdmUiLCJhdWQiOiJTaXBTYXZlLkNsaWVudHMifQ.5N0Kat8g38rRJAiwz_eSK0zTyjgZrYcYgZ4il-ikTVU";
@@ -14,10 +17,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-
-  console.log(`Using API: ${apiBaseUrl}`);
-  console.log(`Using barId: ${barId}`);
-
+ 
   const connections = [];
 
   if (staffToken) {
@@ -142,7 +142,7 @@ function printToken(label, claims) {
   console.log(`\n${label} JWT claims:`);
   console.dir(claims, { depth: null, colors: true });
   if (claims.exp) {
-    console.log(`${label} token expires at: ${new Date(claims.exp * 1000).toISOString()}`);
+    console.log(`${label} token expires at: ${new Date(claims.exp * 1000).toISOString()}`); 
   }
 }
 
