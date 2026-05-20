@@ -1,16 +1,68 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getTabletState, TabletState } from '@/lib/tablet-state';
+import { getActiveBarId } from '@/lib/active-bar';
+import { fetchPourQueue, fetchServedTonight, type PourRequestDto } from '@/lib/api-client';
+import { usePourHub } from '@/hooks/usePourHub';
+import { HubConnectionState } from '@microsoft/signalr';
+
+type ServedRow = {
+  time: string;
+  table: string;
+  customer: string;
+  bottle: string;
+  amount: string;
+  servedMl: number;
+};
 
 export default function PourQueuePage() {
   const router = useRouter();
   const [state, setState] = useState<TabletState | null>(null);
+  const [servedRows, setServedRows] = useState<ServedRow[]>([]);
+  const refreshInFlightRef = useRef(false);
+
+  const refreshData = useCallback(async () => {
+    const barId = getActiveBarId();
+    if (!barId || refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    try {
+      const [pendingRows, served] = await Promise.all([
+        fetchPourQueue(barId),
+        fetchServedTonight(barId, 100),
+      ]);
+
+      setState(prev => {
+        if (!prev) return prev;
+        return { ...prev, pourQueue: pendingRows.map(toQueueState) };
+      });
+      setServedRows(served.map(toServedRow));
+    } catch (error) {
+      console.error('Error refreshing pour queue:', error);
+    } finally {
+      refreshInFlightRef.current = false;
+    }
+  }, []);
+
+  const { connectionState } = usePourHub(getActiveBarId(), {
+    onNewPourRequest: () => { void refreshData(); },
+    onPourConfirmed: () => { void refreshData(); },
+    onPourCancelled: () => { void refreshData(); },
+  });
 
   useEffect(() => {
     setState(getTabletState());
-  }, []);
+    void refreshData();
+  }, [refreshData]);
+
+  useEffect(() => {
+    if (connectionState === HubConnectionState.Connected) return;
+    const interval = setInterval(() => {
+      void refreshData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [connectionState, refreshData]);
 
   if (!state) {
     return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading pour queue...</div>;
@@ -20,16 +72,18 @@ export default function PourQueuePage() {
     router.push(`/serve/${requestId}`);
   };
 
+  const uiServedRows = servedRows.length > 0 ? servedRows : state.servedPours.map(fromLegacyServedRow);
+  const servedCount = uiServedRows.length;
+  const totalServedMl = uiServedRows.reduce((sum, row) => sum + row.servedMl, 0);
+
   return (
     <div>
       <div className="flex justify-between items-end mb-6">
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Pour Requests Queue</h1>
-          <p className="text-sm font-semibold text-slate-500 mt-1">Real-time updates</p>
-        </div>
-      
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Pour Requests Queue</h1>
+        <p className="text-sm font-semibold text-slate-500 mt-1">Real-time updates</p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column: Pending Requests */}
         <div>
           <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4 flex items-center gap-2">
             Pending Requests ({state.pourQueue.length})
@@ -40,7 +94,7 @@ export default function PourQueuePage() {
 
           <div className="space-y-3">
             {state.pourQueue.map((req) => {
-              const isUrgent = req.urgent || req.waitTime.includes('4');
+              const isUrgent = Boolean(req.urgent);
               const cardClass = isUrgent
                 ? 'border-2 border-[#e11d48] bg-[#fff1f2] hover:border-[#4338ca] hover:shadow-md'
                 : 'border border-[#e2e8f0] bg-white hover:border-[#4338ca] hover:shadow-md';
@@ -96,9 +150,8 @@ export default function PourQueuePage() {
           </div>
         </div>
 
-        {/* Right Column: Served Tonight */}
         <div>
-          <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">Served Tonight ({state.shiftStats.poursServed})</h3>
+          <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">Served Tonight ({servedCount})</h3>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-6">
             <div className="max-h-[360px] overflow-y-auto">
@@ -113,7 +166,7 @@ export default function PourQueuePage() {
                   </tr>
                 </thead>
                 <tbody className="text-sm font-medium">
-                  {state.servedPours.map((row, i) => (
+                  {uiServedRows.map((row, i) => (
                     <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 text-slate-500">{row.time}</td>
                       <td className="px-4 py-3 text-slate-900 font-bold">{row.table}</td>
@@ -127,18 +180,17 @@ export default function PourQueuePage() {
             </div>
           </div>
 
-          {/* Bottom Summary Card */}
           <div className="bg-[#312e81] text-white rounded-xl p-6 shadow-sm flex justify-between items-center">
             <div>
               <p className="text-xs font-semibold text-indigo-200 uppercase tracking-wider mb-1">Tonight's Totals</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-white">{state.shiftStats.poursServed}</span>
+                <span className="text-3xl font-black text-white">{servedCount}</span>
                 <span className="text-sm font-medium text-indigo-200">pours served</span>
               </div>
             </div>
             <div className="text-right">
               <p className="text-xs text-indigo-200 font-medium tracking-wide">
-                Total Volume: <span className="font-bold text-white text-lg ml-1">{state.shiftStats.totalMlServed} ml</span>
+                Total Volume: <span className="font-bold text-white text-lg ml-1">{totalServedMl} ml</span>
               </p>
               <p className="text-xs text-indigo-300 mt-1">Avg service time: {state.shiftStats.avgServiceTime}</p>
             </div>
@@ -147,4 +199,71 @@ export default function PourQueuePage() {
       </div>
     </div>
   );
+}
+
+function toQueueState(row: PourRequestDto) {
+  const waitTime = toWaitLabel(row.createdAtUtc);
+  return {
+    id: row.id,
+    tableId: row.barTableId ?? row.sessionId,
+    customer: row.userDisplayName ?? 'Guest',
+    bottle: [row.bottleBrandName, row.bottleProductName].filter(Boolean).join(' ') || 'Unknown bottle',
+    walletBalance: row.remainingMlAfterServe ?? 0,
+    requestedAmount: row.requestedMl,
+    waitTime,
+    urgent: isUrgentWait(waitTime)
+  };
+}
+
+function toWaitLabel(createdAtUtc: string): string {
+  const createdAt = Date.parse(createdAtUtc);
+  if (Number.isNaN(createdAt)) return 'Just now';
+  const diffMs = Date.now() - createdAt;
+  const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin} min`;
+  const hours = Math.floor(diffMin / 60);
+  const minutes = diffMin % 60;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+}
+
+function isUrgentWait(waitTime: string): boolean {
+  if (waitTime === 'Just now') return false;
+  const match = /^(\d+)\s+min$/.exec(waitTime);
+  if (!match) return false;
+  return Number(match[1]) >= 4;
+}
+
+function toServedRow(row: PourRequestDto): ServedRow {
+  const servedMl = row.servedMl ?? 0;
+  return {
+    time: toClockLabel(row.servedAtUtc ?? row.createdAtUtc),
+    table: row.barTableId ? `T${row.barTableId}` : `S${row.sessionId}`,
+    customer: row.userDisplayName ?? 'Guest',
+    bottle: [row.bottleBrandName, row.bottleProductName].filter(Boolean).join(' ') || 'Unknown bottle',
+    amount: `${servedMl}ml`,
+    servedMl
+  };
+}
+
+function fromLegacyServedRow(row: TabletState['servedPours'][number]): ServedRow {
+  return {
+    time: row.time,
+    table: row.table,
+    customer: row.customer,
+    bottle: row.bottle,
+    amount: row.amount,
+    servedMl: toMlValue(row.amount)
+  };
+}
+
+function toClockLabel(utcIso: string): string {
+  const dt = new Date(utcIso);
+  if (Number.isNaN(dt.getTime())) return '--';
+  return dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function toMlValue(text: string): number {
+  const match = /(\d+)/.exec(text);
+  return match ? Number(match[1]) : 0;
 }

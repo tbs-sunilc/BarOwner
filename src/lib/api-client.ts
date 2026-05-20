@@ -389,6 +389,7 @@ export type PourRequestStatus = 'Pending' | 'Served' | 'Cancelled' | 'Rejected';
 export type PourRequestDto = {
   id: number;
   sessionId: number;
+  barTableId: number | null;
   walletId: number;
   userId: number;
   barId: number;
@@ -443,6 +444,9 @@ export const createPourRequest = (payload: CreatePourRequestPayload) =>
 
 export const fetchPourQueue = (barId: number) =>
   request<PourRequestDto[]>(`/api/v1/pour-requests/queue?barId=${barId}`);
+
+export const fetchServedTonight = (barId: number, take = 50) =>
+  request<PourRequestDto[]>(`/api/v1/pour-requests/served-tonight?barId=${barId}&take=${take}`);
 
 export const fetchPourRequest = (id: number) =>
   request<PourRequestDto>(`/api/v1/pour-requests/${id}`);
