@@ -74,7 +74,10 @@ export function usePourHub(barId: number | null, handlers: PourHubHandlers) {
     if (barId == null) return;
 
     const token = typeof window !== 'undefined'
-      ? window.sessionStorage.getItem('sipsave-barowner-access-token')
+      ? (
+        window.sessionStorage.getItem('sipsave-staff-access-token')
+        || window.sessionStorage.getItem('sipsave-barowner-access-token')
+      )
       : null;
     if (!token) {
       setConnectionState(HubConnectionState.Disconnected);
