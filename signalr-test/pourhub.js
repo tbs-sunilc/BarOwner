@@ -126,7 +126,7 @@ function buildConnection(token) {
     })
     .withAutomaticReconnect()
     .build();
-}
+} 
 
 async function joinBarGroup(connection) {
   console.log(`[STAFF] Joining bar group ${barId}...`);
@@ -144,7 +144,7 @@ function printToken(label, claims) {
   if (claims.exp) {
     console.log(`${label} token expires at: ${new Date(claims.exp * 1000).toISOString()}`); 
   }
-}
+} 
 
 function assertNotExpired(label, claims) {
   if (!claims.exp) return;
