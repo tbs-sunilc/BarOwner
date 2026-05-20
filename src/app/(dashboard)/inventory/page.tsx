@@ -34,6 +34,7 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState<string>('All');
   const [pendingToggleId, setPendingToggleId] = useState<number | null>(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   // Resolve active bar from URL or sessionStorage; persist URL → storage so refresh works.
   useEffect(() => {
@@ -126,6 +127,19 @@ export default function InventoryPage() {
     setSelectedItem(null);
   }
 
+  function onDownloadReconciliationReport() {
+    if (!barId || downloadingReport) return;
+    setError(null);
+    setDownloadingReport(true);
+    try {
+      downloadInventoryReconciliationCsv(items, barId);
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : 'Failed to download reconciliation report.');
+    } finally {
+      setDownloadingReport(false);
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className="px-6 py-6">
@@ -137,10 +151,11 @@ export default function InventoryPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-md hover:bg-white"
-            onClick={() => alert('Reconciliation report download — Phase 7 dashboard wiring')}
+            className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-md hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={onDownloadReconciliationReport}
+            disabled={!barId || loading || downloadingReport}
           >
-            📥 Reconciliation Report
+            {downloadingReport ? 'Preparing Report...' : 'Reconciliation Report'}
           </button>
           <Link
             href="/inventory/add"
@@ -459,4 +474,80 @@ function NoActiveBarBanner() {
       until owner login is wired (Phase 8).
     </div>
   );
+}
+
+function downloadInventoryReconciliationCsv(items: InventoryItem[], barId: number): void {
+  if (typeof document === 'undefined') {
+    throw new Error('Report downloads are only available in the browser.');
+  }
+
+  const generatedAt = new Date();
+  const headers = [
+    'Generated At',
+    'Bar ID',
+    'Inventory ID',
+    'Brand',
+    'Product',
+    'Category',
+    'Sub Category',
+    'Selling Price',
+    'Physical Stock',
+    'Committed To Wallets',
+    'Available For Purchase',
+    'Reconciliation Difference',
+    'Stock State',
+    'Enabled',
+    'Physical Stock Value',
+    'Committed Stock Value',
+    'Available Stock Value',
+  ];
+
+  const rows = items.map((item) => {
+    const reconciliationDifference =
+      item.bottlesInStock - item.bottlesCommitted - item.bottlesAvailableForPurchase;
+
+    return [
+      generatedAt.toLocaleString('en-IN'),
+      barId,
+      item.id,
+      item.brandName,
+      item.productName,
+      item.category,
+      item.subCategory ?? '',
+      item.sellingPrice,
+      item.bottlesInStock,
+      item.bottlesCommitted,
+      item.bottlesAvailableForPurchase,
+      reconciliationDifference,
+      item.stockState,
+      item.isAvailable ? 'Yes' : 'No',
+      item.bottlesInStock * item.sellingPrice,
+      item.bottlesCommitted * item.sellingPrice,
+      item.bottlesAvailableForPurchase * item.sellingPrice,
+    ];
+  });
+
+  const csv = [headers, ...rows]
+    .map((row) => row.map(csvCell).join(','))
+    .join('\r\n');
+  const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8;' });
+  const datePart = generatedAt.toISOString().slice(0, 10);
+  triggerClientDownload(blob, `inventory-reconciliation-bar-${barId}-${datePart}.csv`);
+}
+
+function csvCell(value: string | number): string {
+  const text = String(value);
+  const escaped = text.replace(/"/g, '""');
+  return /[",\r\n]/.test(escaped) ? `"${escaped}"` : escaped;
+}
+
+function triggerClientDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
