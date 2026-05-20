@@ -99,8 +99,13 @@ export function usePourHub(barId: number | null, handlers: PourHubHandlers) {
 
     conn.onreconnecting(() => setConnectionState(HubConnectionState.Reconnecting));
     conn.onreconnected(async () => {
-      setConnectionState(HubConnectionState.Connected);
-      try { await conn.invoke('JoinBarGroup', barId); } catch { /* ignore */ }
+      try {
+        await conn.invoke('JoinBarGroup', barId);
+        setConnectionState(HubConnectionState.Connected);
+      } catch {
+        setConnectionState(HubConnectionState.Disconnected);
+        await conn.stop().catch(() => undefined);
+      }
     });
     conn.onclose(() => setConnectionState(HubConnectionState.Disconnected));
 
@@ -112,6 +117,7 @@ export function usePourHub(barId: number | null, handlers: PourHubHandlers) {
       } catch (err) {
         console.warn('PourHub connect failed', err);
         setConnectionState(HubConnectionState.Disconnected);
+        await conn.stop().catch(() => undefined);
       }
     })();
 
