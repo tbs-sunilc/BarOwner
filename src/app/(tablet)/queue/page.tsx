@@ -2,10 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getTabletState, TabletState } from '@/lib/tablet-state';
+import { getTabletState, TabletState, saveTabletState } from '@/lib/tablet-state';
 import { getActiveBarId } from '@/lib/active-bar';
-import { fetchPourQueue, fetchServedTonight, type PourRequestDto } from '@/lib/api-client';
-import { usePourHub, type QueueUpdatedEvent, type QueueItemDto, type ServedItemDto } from '@/hooks/usePourHub';
+import { fetchPourQueue, fetchServedTonight } from '@/lib/api-client';
+import {
+  applyPourApiToState,
+  applyQueueUpdatedToState,
+  pourDtoToQueueItem,
+  pourDtoToServedLog,
+  queueItemToQueueState,
+} from '@/lib/pour-dashboard';
+import { usePourHub, type QueueUpdatedEvent, type QueueItemDto } from '@/hooks/usePourHub';
 import { HubConnectionState } from '@microsoft/signalr';
 
 type ServedRow = {
@@ -20,8 +27,8 @@ type ServedRow = {
 export default function PourQueuePage() {
   const router = useRouter();
   const [state, setState] = useState<TabletState | null>(null);
-  const [servedRows, setServedRows] = useState<ServedRow[]>([]);
-  const [queueItems, setQueueItems] = useState<QueueItemDto[]>([]);
+  const [servedRows, setServedRows] = useState<ServedRow[] | null>(null);
+  const [queueItems, setQueueItems] = useState<QueueItemDto[] | null>(null);
   const refreshInFlightRef = useRef(false);
 
   const refreshData = useCallback(async () => {
@@ -34,11 +41,17 @@ export default function PourQueuePage() {
         fetchServedTonight(barId, 100),
       ]);
 
+      setQueueItems(pendingRows.map(pourDtoToQueueItem));
+      setServedRows(served.map(row => {
+        const log = pourDtoToServedLog(row);
+        return { ...log, servedMl: row.servedMl ?? 0 };
+      }));
       setState(prev => {
         if (!prev) return prev;
-        return { ...prev, pourQueue: pendingRows.map(toQueueState) };
+        const next = applyPourApiToState(prev, pendingRows, served);
+        saveTabletState(next);
+        return next;
       });
-      setServedRows(served.map(toServedRow));
     } catch (error) {
       console.error('Error refreshing pour queue:', error);
     } finally {
@@ -49,24 +62,19 @@ export default function PourQueuePage() {
   // Handle real-time queue updates from SignalR
   const handleQueueUpdated = useCallback((evt: QueueUpdatedEvent) => {
     setQueueItems(evt.pendingRequests);
-    setServedRows(evt.servedTonight);
-    
-    // Update state with queue items converted to queue state
+    setServedRows(evt.servedTonight.map(row => ({
+      time: row.time,
+      table: row.table,
+      customer: row.customer,
+      bottle: row.bottle,
+      amount: row.amount,
+      servedMl: row.servedMl,
+    })));
     setState(prev => {
       if (!prev) return prev;
-      return {
-        ...prev,
-        pourQueue: evt.pendingRequests.map(item => ({
-          id: item.id,
-          tableId: item.tableId,
-          customer: item.customerName,
-          bottle: item.bottleName,
-          walletBalance: item.walletBalanceMl,
-          requestedAmount: item.requestedMl,
-          waitTime: item.waitTime,
-          urgent: item.isUrgent,
-        })),
-      };
+      const next = applyQueueUpdatedToState(prev, evt);
+      saveTabletState(next);
+      return next;
     });
   }, []);
 
@@ -99,22 +107,12 @@ export default function PourQueuePage() {
     router.push(`/serve/${requestId}`);
   };
 
-  const uiServedRows = servedRows.length > 0 ? servedRows : state.servedPours.map(fromLegacyServedRow);
-  const servedCount = uiServedRows.length;
-  const totalServedMl = uiServedRows.reduce((sum, row) => sum + row.servedMl, 0);
-  
-  // Use real-time queue items if available, otherwise use state
-  const displayQueue = queueItems.length > 0 
-    ? queueItems.map(item => ({
-        id: item.id,
-        tableId: item.tableId,
-        customer: item.customerName,
-        bottle: item.bottleName,
-        walletBalance: item.walletBalanceMl,
-        requestedAmount: item.requestedMl,
-        waitTime: item.waitTime,
-        urgent: item.isUrgent,
-      }))
+  const uiServedRows = servedRows ?? state.servedPours.map(fromLegacyServedRow);
+  const servedCount = state.shiftStats.poursServed;
+  const totalServedMl = state.shiftStats.totalMlServed;
+
+  const displayQueue = queueItems !== null
+    ? queueItems.map(queueItemToQueueState)
     : state.pourQueue;
 
   return (
@@ -244,51 +242,6 @@ export default function PourQueuePage() {
   );
 }
 
-function toQueueState(row: PourRequestDto) {
-  const waitTime = toWaitLabel(row.createdAtUtc);
-  return {
-    id: row.id,
-    tableId: row.barTableId ?? row.sessionId,
-    customer: row.userDisplayName ?? 'Guest',
-    bottle: [row.bottleBrandName, row.bottleProductName].filter(Boolean).join(' ') || 'Unknown bottle',
-    walletBalance: row.remainingMlAfterServe ?? 0,
-    requestedAmount: row.requestedMl,
-    waitTime,
-    urgent: isUrgentWait(waitTime)
-  };
-}
-
-function toWaitLabel(createdAtUtc: string): string {
-  const createdAt = Date.parse(createdAtUtc);
-  if (Number.isNaN(createdAt)) return 'Just now';
-  const diffMs = Date.now() - createdAt;
-  const diffMin = Math.max(0, Math.floor(diffMs / 60000));
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin} min`;
-  const hours = Math.floor(diffMin / 60);
-  const minutes = diffMin % 60;
-  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-}
-
-function isUrgentWait(waitTime: string): boolean {
-  if (waitTime === 'Just now') return false;
-  const match = /^(\d+)\s+min$/.exec(waitTime);
-  if (!match) return false;
-  return Number(match[1]) >= 4;
-}
-
-function toServedRow(row: PourRequestDto): ServedRow {
-  const servedMl = row.servedMl ?? 0;
-  return {
-    time: toClockLabel(row.servedAtUtc ?? row.createdAtUtc),
-    table: row.barTableId ? `T${row.barTableId}` : `S${row.sessionId}`,
-    customer: row.userDisplayName ?? 'Guest',
-    bottle: [row.bottleBrandName, row.bottleProductName].filter(Boolean).join(' ') || 'Unknown bottle',
-    amount: `${servedMl}ml`,
-    servedMl
-  };
-}
-
 function fromLegacyServedRow(row: TabletState['servedPours'][number]): ServedRow {
   return {
     time: row.time,
@@ -298,12 +251,6 @@ function fromLegacyServedRow(row: TabletState['servedPours'][number]): ServedRow
     amount: row.amount,
     servedMl: toMlValue(row.amount)
   };
-}
-
-function toClockLabel(utcIso: string): string {
-  const dt = new Date(utcIso);
-  if (Number.isNaN(dt.getTime())) return '--';
-  return dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 function toMlValue(text: string): number {

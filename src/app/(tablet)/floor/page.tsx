@@ -1,60 +1,94 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getTabletState, TabletState, saveTabletState, fetchLiveTableStatus } from '@/lib/tablet-state';
+import { getTabletState, TabletState, TableState, saveTabletState, fetchLiveTableStatus } from '@/lib/tablet-state';
 import { getActiveBarId } from '@/lib/active-bar';
+import { fetchPourQueue, fetchServedTonight } from '@/lib/api-client';
+import { applyPourApiToState, applyQueueUpdatedToState } from '@/lib/pour-dashboard';
 import { HubConnectionState } from '@microsoft/signalr';
-import { usePourHub, type TableStatusChangedEvent } from '@/hooks/usePourHub';
+import { usePourHub, type QueueUpdatedEvent, type TableStatusChangedEvent } from '@/hooks/usePourHub';
+
+// ─── constants ───────────────────────────────────────────────────────────────
+const POLL_INTERVAL_DISCONNECTED = 10_000;  // 10 s when SignalR is down (was 30 s)
+const POLL_INTERVAL_CONNECTED    = 60_000;  // 60 s heartbeat even when connected
+
+type TableStatusFilter = 'occupied' | 'pour-pending' | 'reserved' | 'available';
+
+const FILTER_OPTIONS: {
+  key: TableStatusFilter;
+  label: string;
+  swatchClass: string;
+}[] = [
+  { key: 'occupied', label: 'Occupied', swatchClass: 'bg-[#eef2ff] border-2 border-[#4338ca]' },
+  { key: 'reserved', label: 'Reserved', swatchClass: 'bg-[#fffbeb] border-2 border-[#d97706]' },
+  { key: 'available', label: 'Available', swatchClass: 'bg-[#f8fafc] border-2 border-[#e2e8f0]' },
+  { key: 'pour-pending', label: 'Pour Pending', swatchClass: 'bg-[#fff1f2] border-2 border-[#e11d48]' },
+];
+
+function tableMatchesFilter(status: TableState['status'], filters: Set<TableStatusFilter>) {
+  if (filters.size === 0) return true;
+  return filters.has(status);
+}
 
 export default function FloorPage() {
   const router = useRouter();
   const [state, setState] = useState<TabletState | null>(null);
   const [isLoadingLiveData, setIsLoadingLiveData] = useState(false);
-  const refreshInFlightRef = useRef(false);
+  const [activeFilters, setActiveFilters] = useState<Set<TableStatusFilter>>(new Set());
 
-  const refreshTables = useCallback(async () => {
+  // Guard against concurrent in-flight requests
+  const refreshInFlightRef = useRef(false);
+  // Track last successful fetch so we can skip redundant polls
+  const lastFetchedAtRef = useRef<number>(0);
+
+  // ─── core refresh (tables + pour queue + shift stats) ─────────────────────
+  const refreshDashboard = useCallback(async (force = false) => {
     const barId = getActiveBarId();
-    if (!barId || refreshInFlightRef.current) return;
+    if (!barId) return;
+    if (refreshInFlightRef.current) return;
+
+    // Skip if fetched within last 5 s (unless forced)
+    if (!force && Date.now() - lastFetchedAtRef.current < 5_000) return;
+
     refreshInFlightRef.current = true;
     try {
-      const liveTables = await fetchLiveTableStatus(barId);
+      const [liveTables, pendingRows, servedRows] = await Promise.all([
+        fetchLiveTableStatus(barId),
+        fetchPourQueue(barId),
+        fetchServedTonight(barId, 100),
+      ]);
+      lastFetchedAtRef.current = Date.now();
       setState(prev => {
         if (!prev) return prev;
-        const next = { ...prev, tables: liveTables };
+        const next = applyPourApiToState(
+          { ...prev, tables: liveTables },
+          pendingRows,
+          servedRows,
+        );
         saveTabletState(next);
         return next;
       });
     } catch (error) {
-      console.error('Error refreshing table status:', error);
+      console.error('[FloorPage] Error refreshing dashboard:', error);
     } finally {
       refreshInFlightRef.current = false;
     }
   }, []);
 
-  // Handle real-time table status updates from SignalR
+  // ─── SignalR: surgical per-table update ────────────────────────────────────
   const handleTableStatusChanged = useCallback((evt: TableStatusChangedEvent) => {
     setState(prev => {
       if (!prev) return prev;
 
-      // Map the API status to frontend status
       let tableStatus: 'occupied' | 'pour-pending' | 'available' | 'reserved' = 'available';
       switch (evt.status.toLowerCase()) {
-        case 'occupied':
-          tableStatus = 'occupied';
-          break;
-        case 'pourpending':
-          tableStatus = 'pour-pending';
-          break;
-        case 'reserved':
-          tableStatus = 'reserved';
-          break;
-        default:
-          tableStatus = 'available';
+        case 'occupied':     tableStatus = 'occupied';     break;
+        case 'pourpending':  tableStatus = 'pour-pending'; break;
+        case 'reserved':     tableStatus = 'reserved';     break;
+        default:             tableStatus = 'available';
       }
 
-      // Update the specific table in the tables array
       const updatedTables = prev.tables.map(table =>
         table.id === evt.tableId
           ? {
@@ -74,62 +108,117 @@ export default function FloorPage() {
     });
   }, []);
 
+  const handleQueueUpdated = useCallback((evt: QueueUpdatedEvent) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const next = applyQueueUpdatedToState(prev, evt);
+      saveTabletState(next);
+      return next;
+    });
+  }, []);
+
+  // ─── SignalR hook ──────────────────────────────────────────────────────────
   const { connectionState } = usePourHub(getActiveBarId(), {
-    onNewPourRequest: () => { void refreshTables(); },
-    onPourConfirmed: () => { void refreshTables(); },
-    onPourCancelled: () => { void refreshTables(); },
-    onTableStatusChanged: handleTableStatusChanged,
+    onNewPourRequest:      () => { void refreshDashboard(true); },
+    onPourConfirmed:       () => { void refreshDashboard(true); },
+    onPourCancelled:       () => { void refreshDashboard(true); },
+    onQueueUpdated:        handleQueueUpdated,
+    onTableStatusChanged:  handleTableStatusChanged,
   });
 
+  // ─── initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     const loadData = async () => {
-      // Get initial state from localStorage
-      const initialState = getTabletState();
-      setState(initialState);
+      // Show cached state immediately so UI isn't blank
+      const cached = getTabletState();
+      setState(cached);
 
-      // Try to fetch live table data from API
       setIsLoadingLiveData(true);
       try {
-        await refreshTables();
+        await refreshDashboard(true);
       } catch (error) {
-        console.error('Error loading live table status:', error);
-        // State already set to initialState above
+        console.error('[FloorPage] Initial load failed:', error);
       } finally {
         setIsLoadingLiveData(false);
       }
     };
 
     void loadData();
-  }, [refreshTables]);
+  }, [refreshDashboard]);
 
-  // Only poll as fallback if SignalR is not connected
+  // ─── visibility-based refresh (tab regains focus) ─────────────────────────
   useEffect(() => {
-    if (connectionState === HubConnectionState.Connected) return;
-    const interval = setInterval(() => {
-      void refreshTables();
-    }, 30000);    return () => clearInterval(interval);
-  }, [connectionState, refreshTables]);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshDashboard(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [refreshDashboard]);
 
+  // ─── polling fallback (adaptive interval) ─────────────────────────────────
+  useEffect(() => {
+    const isConnected = connectionState === HubConnectionState.Connected;
+    // Still poll when connected — acts as a heartbeat to catch any missed events
+    const interval = setInterval(
+      () => { void refreshDashboard(); },
+      isConnected ? POLL_INTERVAL_CONNECTED : POLL_INTERVAL_DISCONNECTED
+    );
+    return () => clearInterval(interval);
+  }, [connectionState, refreshDashboard]);
+
+  // ─── connection-state change: immediately re-fetch when SignalR reconnects ─
+  const prevConnectionStateRef = useRef<HubConnectionState | null>(null);
+  useEffect(() => {
+    if (
+      prevConnectionStateRef.current !== HubConnectionState.Connected &&
+      connectionState === HubConnectionState.Connected
+    ) {
+      // Just reconnected — data may be stale, force a full refresh
+      void refreshDashboard(true);
+    }
+    prevConnectionStateRef.current = connectionState;
+  }, [connectionState, refreshDashboard]);
+
+  // ─── render guard ──────────────────────────────────────────────────────────
   if (!state) {
-    return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading floor plan...</div>;
+    return (
+      <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">
+        Loading floor plan...
+      </div>
+    );
   }
 
-  // Calculate dynamic stats
-  const occupiedCount = state.tables.filter(t => t.status === 'occupied' || t.status === 'pour-pending').length;
+  const occupiedCount = state.tables.filter(
+    t => t.status === 'occupied' || t.status === 'pour-pending'
+  ).length;
   const pendingCount = state.pourQueue.length;
 
+  const visibleTables = state.tables.filter(t => tableMatchesFilter(t.status, activeFilters));
+  const filtersActive = activeFilters.size > 0;
+
+  const toggleFilter = (key: TableStatusFilter) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const clearFilters = () => setActiveFilters(new Set());
+
+  // ─── table click ──────────────────────────────────────────────────────────
   const handleTableClick = (tableId: number) => {
     const table = state.tables.find(t => t.id === tableId);
     if (!table) return;
 
+    const toast = (window as any).toast;
     if (table.status === 'available') {
-      if ((window as any).toast) {
-        (window as any).toast(`Table ${tableId} is available`, 'i');
-      }
+      toast?.(`Table ${tableId} is available`, 'i');
     } else if (table.status === 'reserved') {
-      if ((window as any).toast) {
-        (window as any).toast(`Table ${tableId}: Reserved for ${table.details || 'Guest'} at ${table.sessionTime}`, 'w');
-      }
+      toast?.(`Table ${tableId}: Reserved for ${table.details || 'Guest'} at ${table.sessionTime}`, 'w');
     } else if (table.status === 'pour-pending') {
       router.push('/queue');
     } else if (table.status === 'occupied') {
@@ -137,67 +226,125 @@ export default function FloorPage() {
     }
   };
 
+  // ─── connection badge ──────────────────────────────────────────────────────
+  const connectionLabel = (() => {
+    switch (connectionState) {
+      case HubConnectionState.Connected:     return '🟢 Real-time';
+      case HubConnectionState.Connecting:
+      case HubConnectionState.Reconnecting:  return '🟡 Connecting…';
+      default:                               return '🔄 Polling (10 s)';
+    }
+  })();
+
+  // ─── JSX ──────────────────────────────────────────────────────────────────
   return (
     <div className="reveal">
-      {/* Legend Row with Connection Status */}
+      {/* Status filters + connection */}
       <div className="flex flex-wrap gap-4 mb-8 items-center bg-white border border-slate-200 p-4 rounded-lg shadow-sm justify-between">
-        <div className="flex flex-wrap gap-4 items-center">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Legend:</span>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#eef2ff] border-2 border-[#4338ca]"></div>
-            <span className="text-sm font-semibold text-slate-700">Occupied</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#fffbeb] border-2 border-[#d97706]"></div>
-            <span className="text-sm font-semibold text-slate-700">Reserved</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#f8fafc] border-2 border-[#e2e8f0]"></div>
-            <span className="text-sm font-semibold text-slate-700">Available</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#fff1f2] border-2 border-[#e11d48]"></div>
-            <span className="text-sm font-semibold text-slate-700">Pour Pending</span>
-          </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mr-1">Filter:</span>
+          {FILTER_OPTIONS.map(({ key, label, swatchClass }) => {
+            const isOn = activeFilters.has(key);
+            const count = state.tables.filter(t => t.status === key).length;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleFilter(key)}
+                aria-pressed={isOn}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-all ${
+                  isOn
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm ring-1 ring-indigo-200'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span className={`w-4 h-4 rounded shrink-0 ${swatchClass}`} aria-hidden />
+                {label}
+                <span className={`text-xs font-bold tabular-nums ${isOn ? 'text-indigo-600' : 'text-slate-400'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline ml-1"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        <span className="text-sm font-semibold text-slate-500">
-          {connectionState === HubConnectionState.Connected ? '🟢 Real-time' : '🔄 Polling'}
-        </span>
+
+        <div className="flex items-center gap-3">
+          {isLoadingLiveData && (
+            <span className="text-xs text-slate-400 animate-pulse">Refreshing…</span>
+          )}
+          {/* Manual refresh button */}
+          <button
+            onClick={() => void refreshDashboard(true)}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 border border-slate-200 rounded px-2 py-1 transition-colors"
+            title="Force refresh table data"
+          >
+            ↻ Refresh
+          </button>
+          <span className="text-sm font-semibold text-slate-500">{connectionLabel}</span>
+        </div>
       </div>
+
+      {filtersActive && (
+        <p className="text-xs font-semibold text-slate-500 mb-4 -mt-4">
+          Showing {visibleTables.length} of {state.tables.length} tables
+        </p>
+      )}
 
       {/* Floor Plan Grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-5">
-        {state.tables.map((table) => {
+        {visibleTables.length === 0 && (
+          <div className="col-span-full bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center">
+            <p className="text-slate-700 font-bold">No tables match this filter</p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-800"
+            >
+              Show all tables
+            </button>
+          </div>
+        )}
+        {visibleTables.map((table) => {
           let toneClass = '';
           let badgeText = '';
           let badgeClass = '';
           let subText = '';
 
           if (table.status === 'occupied') {
-            toneClass = 'border-[#4338ca] bg-[#eef2ff] text-indigo-900';
+            toneClass  = 'border-[#4338ca] bg-[#eef2ff] text-indigo-900';
             badgeClass = 'bg-indigo-200 text-indigo-800';
-            badgeText = `${table.guests} guests`;
-            subText = `Session: ${table.sessionTime}`;
+            badgeText  = `${table.guests} guests`;
+            subText    = `Session: ${table.sessionTime}`;
           } else if (table.status === 'pour-pending') {
-            toneClass = 'border-[#e11d48] bg-[#fff1f2] text-rose-900 ring-2 ring-rose-200';
+            toneClass  = 'border-[#e11d48] bg-[#fff1f2] text-rose-900 ring-2 ring-rose-200';
             badgeClass = 'bg-rose-200 text-rose-800';
-            badgeText = '🔔 Pour req!';
-            subText = `${table.guests} guest · ${table.sessionTime}`;
+            badgeText  = '🔔 Pour req!';
+            subText    = `${table.guests} guest · ${table.sessionTime}`;
           } else if (table.status === 'reserved') {
-            toneClass = 'border-[#d97706] bg-[#fffbeb] text-amber-900';
+            toneClass  = 'border-[#d97706] bg-[#fffbeb] text-amber-900';
             badgeClass = 'bg-amber-200 text-amber-800';
-            badgeText = `Reserved ${table.sessionTime}`;
-            subText = table.details || 'Reservation';
+            badgeText  = `Reserved ${table.sessionTime}`;
+            subText    = table.details || 'Reservation';
           } else {
-            toneClass = 'border-[#e2e8f0] bg-[#f8fafc] text-slate-600';
+            toneClass  = 'border-[#e2e8f0] bg-[#f8fafc] text-slate-600';
             badgeClass = 'bg-slate-200 text-slate-600';
-            badgeText = 'Available';
-            subText = 'Tap to host';
+            badgeText  = 'Available';
+            subText    = 'Tap to host';
           }
 
-          // Special case for Table 7 display name as requested in specs
-          if (table.id === 7) {
-            subText = `Arjun M. · 26 min`;
+          if (table.customerName && table.status !== 'available') {
+            subText = table.sessionTime
+              ? `${table.customerName} · ${table.sessionTime}`
+              : table.customerName;
           }
 
           return (
@@ -233,10 +380,10 @@ export default function FloorPage() {
         </div>
         <div className="panel p-6 border-t-4 border-amber-500 bg-white">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Wallet Deductions</p>
-          <p className="text-4xl font-black text-amber-700">₹{state.shiftStats.walletDeductions.toLocaleString()}</p>
+          <p className="text-4xl font-black text-amber-700">{state.shiftStats.walletDeductions}</p>
           <p className="text-[10px] font-bold text-amber-600 mt-2">Transactions Logged</p>
         </div>
       </div>
     </div>
   );
-}
+}   
