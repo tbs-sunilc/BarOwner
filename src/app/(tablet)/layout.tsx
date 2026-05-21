@@ -1,6 +1,7 @@
 'use client';
 import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 type ToastType = {
   id: string;
@@ -28,9 +29,10 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-ivory text-ink font-sans">
-      <style jsx global>{`
-        .btn-tablet {
+    <AuthGuard allowedTokens={['sipsave-staff-access-token']}>
+      <div className="min-h-screen bg-ivory text-ink font-sans">
+        <style jsx global>{`
+          .btn-tablet {
           @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all active:scale-95 border;
         }
         .btn-tablet-p { @apply bg-ink text-ivory border-[color:var(--color-accent-lo)] hover:bg-ink-2; box-shadow: var(--shadow-glow); }
@@ -116,5 +118,6 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
         })}
       </div>
     </div>
+    </AuthGuard>
   );
 }
