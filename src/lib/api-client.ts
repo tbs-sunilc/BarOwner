@@ -801,6 +801,88 @@ export const getRevenueReport = (
   );
 };
 
+// ---- Wallet purchases ----
+
+export type BarWalletPurchaseListItemDto = {
+  paymentId: number;
+  walletId: number | null;
+  customerName: string;
+  customerMobile: string;
+  bottleName: string;
+  volumeMl: number | null;
+  amountInPaise: number;
+  paymentMethod: string | null;
+  status: string;
+  createdAtUtc: string;
+  capturedAtUtc: string | null;
+  remainingVolumeMl: number | null;
+};
+
+export type BarWalletCustomerDto = {
+  userId: number | null;
+  name: string;
+  mobileNumber: string;
+  email: string | null;
+};
+
+export type BarWalletBottleDto = {
+  bottleCatalogueId: number | null;
+  name: string;
+  category: string | null;
+  imageUrl: string | null;
+};
+
+export type BarWalletStateDto = {
+  walletId: number;
+  purchasedVolumeMl: number;
+  remainingVolumeMl: number;
+  consumedVolumeMl: number;
+  status: string;
+  expiresOn: string | null;
+  createdAtUtc: string;
+};
+
+export type BarWalletTransactionDto = {
+  id: number;
+  transactionType: string;
+  volumeMlDelta: number;
+  balanceAfterMl: number;
+  purchasedAfterMl: number;
+  paymentId: number | null;
+  pourRequestId: number | null;
+  notes: string | null;
+  createdAtUtc: string;
+};
+
+export type BarWalletPourDto = {
+  pourRequestId: number;
+  requestedMl: number;
+  servedMl: number | null;
+  status: string;
+  servedAtUtc: string | null;
+  userNotes: string | null;
+};
+
+export type BarWalletPurchaseDetailDto = {
+  summary: BarWalletPurchaseListItemDto;
+  customer: BarWalletCustomerDto;
+  bottle: BarWalletBottleDto;
+  wallet: BarWalletStateDto | null;
+  transactions: BarWalletTransactionDto[];
+  pourHistory: BarWalletPourDto[];
+};
+
+export const listWalletPurchases = (barId: number, skip = 0, take = 50) => {
+  assertValidBarId(barId);
+  const q = new URLSearchParams({ skip: String(skip), take: String(take) });
+  return request<BarWalletPurchaseListItemDto[]>(`/api/v1/bars/${barId}/wallet-purchases?${q.toString()}`);
+};
+
+export const getWalletPurchaseDetail = (barId: number, paymentId: number) => {
+  assertValidBarId(barId);
+  return request<BarWalletPurchaseDetailDto>(`/api/v1/bars/${barId}/wallet-purchases/${paymentId}`);
+};
+
 /**
  * Triggers a file download by fetching the export endpoint directly and
  * streaming the blob into an anchor click.  We don't go through `request()`
