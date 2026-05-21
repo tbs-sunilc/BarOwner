@@ -88,7 +88,10 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
             Orders
           </Link>
           <div className="w-px h-6 bg-[color:var(--color-ink-3)] mx-2"></div>
-          <Link href="/shift" className="btn-tablet btn-tablet-r !py-1.5 !px-4">
+          <Link
+            href="/shift"
+            className="btn-tablet btn-tablet-a !py-1.5 !px-4 shadow-glow hover:brightness-105"
+          >
             End Shift
           </Link>
         </div>
