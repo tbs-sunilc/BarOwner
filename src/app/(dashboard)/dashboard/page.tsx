@@ -146,6 +146,8 @@ export default function DashboardPage() {
   if (!data) return null;
 
   const { kpis, revenueChart, topBottles, recentTransactions, subscription } = data;
+  const visibleRevenueChart = revenueChart.slice(-7);
+  const maxRevenue = Math.max(...visibleRevenueChart.map((p) => p.revenueInPaise), 0);
 
   const handleDownloadPDF = () => {
     if (qrTables.length === 0) return;
@@ -320,65 +322,70 @@ export default function DashboardPage() {
             </div>
             
             <div className="flex h-64 items-end gap-3 px-2" >
-              <div className="h-72 w-full pt-6">
+              <div className="h-56 w-full pt-2">
   {revenueChart.length > 0 ? (
     <>
       {/* Grid */}
-      <div className="relative flex h-full items-end gap-4 border-b border-l border-slate-200 px-4 pb-8">
+      <div className="relative h-full">
 
         {/* Horizontal Grid Lines */}
-        <div className="absolute inset-0 flex flex-col justify-between pb-8 pointer-events-none">
-          {[1, 2, 3, 4].map((line) => (
-            <div
-              key={line}
-              className="border-t border-dashed border-slate-200"
-            />
-          ))}
+        <div className="absolute inset-x-0 bottom-8 top-0 border-b border-l border-slate-200">
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+            {[1, 2, 3, 4].map((line) => (
+              <div
+                key={line}
+                className="border-t border-dashed border-slate-200"
+              />
+            ))}
+          </div>
+
+          <div className="absolute inset-x-4 bottom-0 top-0 z-10 flex items-end gap-4">
+            {visibleRevenueChart.map((point) => {
+              const barHeight =
+                maxRevenue > 0 && point.revenueInPaise > 0
+                  ? Math.max(24, (point.revenueInPaise / maxRevenue) * 180)
+                  : 8;
+
+              return (
+                <div
+                  key={point.day}
+                  className="relative flex h-full flex-1 flex-col items-center justify-end"
+                >
+                  {/* Amount */}
+                  <span className="mb-2 text-[11px] font-bold text-slate-600">
+                    {formatCompactCurrency(point.revenueInPaise)}
+                  </span>
+
+                  {/* Bar */}
+                  <div
+                    className={`
+                      w-full max-w-[56px]
+                      rounded-t-xl
+                      transition-all duration-500
+                      hover:opacity-90
+                      ${
+                        point.isToday
+                          ? 'bg-emerald-500'
+                          : 'bg-[#5e5ce6]'
+                      }
+                    `}
+                    style={{
+                      height: `${barHeight}px`,
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {revenueChart.slice(-7).map((point) => {
-          const maxRevenue = Math.max(
-            ...revenueChart.map((p) => p.revenueInPaise || 1)
-          );
-
-          const barHeight =
-            maxRevenue > 0
-              ? Math.max(
-                  24,
-                  (point.revenueInPaise / maxRevenue) * 180
-                )
-              : 24;
-
-          return (
+        <div className="absolute inset-x-4 bottom-0 flex h-8 items-end gap-4">
+          {visibleRevenueChart.map((point) => (
             <div
               key={point.day}
-              className="relative z-10 flex flex-1 flex-col items-center justify-end"
+              className="flex flex-1 items-center justify-center pt-3"
             >
-              {/* Amount */}
-              <span className="mb-2 text-[11px] font-bold text-slate-600">
-                {formatCompactCurrency(point.revenueInPaise)}
-              </span>
-
-              {/* Bar */}
-              <div
-                className={`
-                  w-full max-w-[56px]
-                  rounded-t-xl
-                  transition-all duration-500
-                  hover:opacity-90
-                  ${
-                    point.isToday
-                      ? 'bg-emerald-500'
-                      : 'bg-[#5e5ce6]'
-                  }
-                `}
-                style={{
-                  height: `${barHeight}px`,
-                }}
-              />
-
-              {/* Day */}
-              <span className="mt-3 text-[11px] font-semibold text-slate-500">
+              <span className="text-[11px] font-semibold text-slate-500">
                 {point.isToday
                   ? 'Today'
                   : new Date(point.day).toLocaleDateString(
@@ -389,8 +396,8 @@ export default function DashboardPage() {
                     )}
               </span>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </>
   ) : (
