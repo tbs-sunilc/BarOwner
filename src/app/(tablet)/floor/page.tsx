@@ -107,8 +107,7 @@ export default function FloorPage() {
     if (connectionState === HubConnectionState.Connected) return;
     const interval = setInterval(() => {
       void refreshTables();
-    }, 30000);
-    return () => clearInterval(interval);
+    }, 30000);    return () => clearInterval(interval);
   }, [connectionState, refreshTables]);
 
   if (!state) {

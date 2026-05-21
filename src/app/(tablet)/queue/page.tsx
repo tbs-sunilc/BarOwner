@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getTabletState, TabletState } from '@/lib/tablet-state';
 import { getActiveBarId } from '@/lib/active-bar';
 import { fetchPourQueue, fetchServedTonight, type PourRequestDto } from '@/lib/api-client';
-import { usePourHub, type QueueUpdatedEvent, type QueueItemDto, type ServedItemDto, type PourRequestStatus } from '@/hooks/usePourHub';
+import { usePourHub, type QueueUpdatedEvent, type QueueItemDto, type ServedItemDto } from '@/hooks/usePourHub';
 import { HubConnectionState } from '@microsoft/signalr';
 
 type ServedRow = {
