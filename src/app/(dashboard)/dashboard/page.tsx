@@ -319,27 +319,86 @@ export default function DashboardPage() {
               </div>
             </div>
             
-            <div className="flex h-64 items-end gap-3 px-2">
-              {revenueChart.length > 0 ? (
-                revenueChart.slice(-7).map((point, i) => (
-                  <div key={point.day} className="group relative flex-1 flex flex-col items-center gap-2">
-                    <span className="text-[10px] font-bold text-muted opacity-0 group-hover:opacity-100 transition-opacity">
-                      {formatCompactCurrency(point.revenueInPaise)}
-                    </span>
-                    <div 
-                      className={`w-full rounded-t-sm transition-all duration-500 ${point.isToday ? 'bg-success' : 'bg-[#5e5ce6]'}`}
-                      style={{ height: `${Math.max(10, (point.revenueInPaise / Math.max(...revenueChart.map(p => p.revenueInPaise || 1))) * 100)}%` }}
-                    />
-                    <span className="text-[10px] font-semibold text-muted mt-2">
-                      {point.isToday ? 'Today' : point.day.substring(0, 3)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-muted text-sm italic">
-                  No chart data available yet
-                </div>
-              )}
+            <div className="flex h-64 items-end gap-3 px-2" >
+              <div className="h-72 w-full pt-6">
+  {revenueChart.length > 0 ? (
+    <>
+      {/* Grid */}
+      <div className="relative flex h-full items-end gap-4 border-b border-l border-slate-200 px-4 pb-8">
+
+        {/* Horizontal Grid Lines */}
+        <div className="absolute inset-0 flex flex-col justify-between pb-8 pointer-events-none">
+          {[1, 2, 3, 4].map((line) => (
+            <div
+              key={line}
+              className="border-t border-dashed border-slate-200"
+            />
+          ))}
+        </div>
+
+        {revenueChart.slice(-7).map((point) => {
+          const maxRevenue = Math.max(
+            ...revenueChart.map((p) => p.revenueInPaise || 1)
+          );
+
+          const barHeight =
+            maxRevenue > 0
+              ? Math.max(
+                  24,
+                  (point.revenueInPaise / maxRevenue) * 180
+                )
+              : 24;
+
+          return (
+            <div
+              key={point.day}
+              className="relative z-10 flex flex-1 flex-col items-center justify-end"
+            >
+              {/* Amount */}
+              <span className="mb-2 text-[11px] font-bold text-slate-600">
+                {formatCompactCurrency(point.revenueInPaise)}
+              </span>
+
+              {/* Bar */}
+              <div
+                className={`
+                  w-full max-w-[56px]
+                  rounded-t-xl
+                  transition-all duration-500
+                  hover:opacity-90
+                  ${
+                    point.isToday
+                      ? 'bg-emerald-500'
+                      : 'bg-[#5e5ce6]'
+                  }
+                `}
+                style={{
+                  height: `${barHeight}px`,
+                }}
+              />
+
+              {/* Day */}
+              <span className="mt-3 text-[11px] font-semibold text-slate-500">
+                {point.isToday
+                  ? 'Today'
+                  : new Date(point.day).toLocaleDateString(
+                      'en-IN',
+                      {
+                        weekday: 'short',
+                      }
+                    )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  ) : (
+    <div className="flex h-full items-center justify-center text-sm italic text-slate-400">
+      No chart data available yet
+    </div>
+  )}
+</div>
             </div>
           </div>
         </section>
