@@ -9,6 +9,8 @@ import {
   getBarDetails,
   listBarTables,
   downloadRevenueExport,
+  simulateSubscriptionPaymentFailure,
+  simulateSubscriptionRestore,
   type BarTableDto,
   type DashboardDto,
   BarTable,
@@ -31,6 +33,9 @@ export default function DashboardPage() {
   const [qrError, setQrError] = useState<string | null>(null);
   const [tables, setTables] = useState<BarTable[]>([]);
   const [bundleDownloading, setBundleDownloading] = useState(false);
+  const [subscriptionQaAction, setSubscriptionQaAction] = useState<
+    "failure" | "restore" | null
+  >(null);
 
   useEffect(() => {
     void init();
@@ -162,6 +167,30 @@ export default function DashboardPage() {
     // if (barId && qrTables.length === 0 && !qrLoading) {
     //   setQrTables(await loadQrTables(barId));
     // }
+  }
+
+  async function handleSubscriptionQa(action: "failure" | "restore") {
+    if (!barId || subscriptionQaAction) return;
+
+    try {
+      setSubscriptionQaAction(action);
+      setError(null);
+      if (action === "failure") {
+        await simulateSubscriptionPaymentFailure(barId);
+      } else {
+        await simulateSubscriptionRestore(barId);
+      }
+      await init();
+    } catch (err) {
+      console.error("Subscription QA simulation failed:", err);
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Failed to update subscription QA state.",
+      );
+    } finally {
+      setSubscriptionQaAction(null);
+    }
   }
 
   if (loading) {
@@ -613,11 +642,19 @@ export default function DashboardPage() {
         <span className="text-xs text-muted flex items-center gap-1 italic">
           <IconEdit className="h-3 w-3" /> QA Simulate:
         </span>
-        <button className="btn btn-sm bg-[#c27803] text-white text-[11px] font-bold border-none rounded-lg px-4 py-2 shadow-sm">
-          Payment Failure
+        <button
+          disabled={subscriptionQaAction !== null}
+          onClick={() => handleSubscriptionQa("failure")}
+          className="btn btn-sm bg-[#c27803] text-white text-[11px] font-bold border-none rounded-lg px-4 py-2 shadow-sm disabled:opacity-60"
+        >
+          {subscriptionQaAction === "failure" ? "Working..." : "Payment Failure"}
         </button>
-        <button className="btn btn-sm bg-success text-white text-[11px] font-bold border-none rounded-lg px-4 py-2 shadow-sm">
-          Restore Subscription
+        <button
+          disabled={subscriptionQaAction !== null}
+          onClick={() => handleSubscriptionQa("restore")}
+          className="btn btn-sm bg-success text-white text-[11px] font-bold border-none rounded-lg px-4 py-2 shadow-sm disabled:opacity-60"
+        >
+          {subscriptionQaAction === "restore" ? "Working..." : "Restore Subscription"}
         </button>
       </footer>
 

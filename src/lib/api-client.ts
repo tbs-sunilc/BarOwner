@@ -205,6 +205,22 @@ export const subscribeToPlan = (
     body: JSON.stringify(payload),
   });
 
+export const simulateSubscriptionPaymentFailure = (barId: number) => {
+  assertValidBarId(barId);
+  return request<SubscriptionStatusDto>(
+    `/api/v1/bars/${barId}/subscription/qa/payment-failure`,
+    { method: "POST" },
+  );
+};
+
+export const simulateSubscriptionRestore = (barId: number) => {
+  assertValidBarId(barId);
+  return request<SubscriptionStatusDto>(
+    `/api/v1/bars/${barId}/subscription/qa/restore`,
+    { method: "POST" },
+  );
+};
+
 // ---------------------------------------------------------------------------
 //  Bar registration endpoints
 // ---------------------------------------------------------------------------
