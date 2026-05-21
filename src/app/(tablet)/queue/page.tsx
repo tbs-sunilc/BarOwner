@@ -103,8 +103,12 @@ export default function PourQueuePage() {
     return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading pour queue...</div>;
   }
 
-  const handleServeNow = (requestId: number) => {
-    router.push(`/serve/${requestId}`);
+  const handleServeNow = (requestId: number, walletBalance?: number) => {
+    const qs =
+      walletBalance != null && walletBalance > 0
+        ? `?balance=${walletBalance}`
+        : '';
+    router.push(`/serve/${requestId}${qs}`);
   };
 
   const uiServedRows = servedRows ?? state.servedPours.map(fromLegacyServedRow);
@@ -144,7 +148,7 @@ export default function PourQueuePage() {
               return (
                 <div
                   key={req.id}
-                  onClick={() => handleServeNow(req.id)}
+                  onClick={() => handleServeNow(req.id, req.walletBalance)}
                   className={`rounded-xl p-4 cursor-pointer transition-all ${cardClass}`}
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -171,7 +175,7 @@ export default function PourQueuePage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleServeNow(req.id);
+                      handleServeNow(req.id, req.walletBalance);
                     }}
                     className="w-full bg-[#16a34a] hover:bg-emerald-700 text-white py-2.5 rounded-lg text-sm font-bold transition-colors"
                   >
