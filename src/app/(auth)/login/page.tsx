@@ -26,6 +26,7 @@ type Step = 'details' | 'otp';
 export default function BarOwnerLoginPage() {
   const router = useRouter();
   const [isFlipped, setIsFlipped] = useState(false);
+  const [staffSessionNotice, setStaffSessionNotice] = useState<string | null>(null);
   const [step, setStep] = useState<Step>('details');
   const [fullName, setFullName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
@@ -43,6 +44,18 @@ export default function BarOwnerLoginPage() {
     () => fullName.trim().length >= 2 && MOBILE_REGEX.test(normalizedMobile),
     [fullName, normalizedMobile],
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('staff') === '1') setIsFlipped(true);
+    const reason = params.get('reason');
+    if (reason === 'expired') {
+      setStaffSessionNotice('Your shift session has expired. Please log in again.');
+    } else if (reason === 'unauthorized') {
+      setStaffSessionNotice('You have been signed out. Please log in again.');
+    }
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -347,14 +360,26 @@ export default function BarOwnerLoginPage() {
 
         {/* BACK: Staff Login */}
         <div className="flip-card-back">
-          <StaffLoginForm onBack={() => setIsFlipped(false)} />
+          <StaffLoginForm
+            onBack={() => {
+              setIsFlipped(false);
+              setStaffSessionNotice(null);
+            }}
+            sessionNotice={staffSessionNotice}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function StaffLoginForm({ onBack }: { onBack: () => void }) {
+function StaffLoginForm({
+  onBack,
+  sessionNotice,
+}: {
+  onBack: () => void;
+  sessionNotice?: string | null;
+}) {
   const router = useRouter();
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -413,6 +438,12 @@ function StaffLoginForm({ onBack }: { onBack: () => void }) {
           Enter your registered mobile number and password to begin your shift.
         </p>
       </header>
+
+      {sessionNotice && (
+        <div className="mb-4 rounded-lg border border-[color:var(--color-warning)] bg-[color:var(--color-warning-tint)] px-4 py-3 text-sm font-semibold text-[color:var(--color-text)]">
+          {sessionNotice}
+        </div>
+      )}
 
       <form onSubmit={handleLogin} className="space-y-4" noValidate>
         <div>

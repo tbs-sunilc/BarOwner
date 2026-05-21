@@ -40,6 +40,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const text = await res.text();
   const body = text ? safeParse(text) : null;
   if (!res.ok) {
+    if (
+      res.status === 401 &&
+      typeof window !== "undefined" &&
+      !path.includes("/staff/auth/login") &&
+      !path.includes("/auth/register") &&
+      !path.includes("/auth/verify") &&
+      headers.get("Authorization")?.startsWith("Bearer ") &&
+      window.sessionStorage.getItem("sipsave-staff-access-token")
+    ) {
+      const { redirectToStaffLogin } = await import("./staff-session");
+      redirectToStaffLogin("unauthorized");
+    }
+
     const message =
       (body &&
       typeof body === "object" &&

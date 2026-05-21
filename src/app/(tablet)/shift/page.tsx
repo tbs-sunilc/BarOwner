@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getTabletState, TabletState, resetTabletState } from '@/lib/tablet-state';
+import { clearStaffSession } from '@/lib/staff-session';
 
 export default function ShiftSummaryPage() {
   const router = useRouter();
@@ -31,15 +32,9 @@ export default function ShiftSummaryPage() {
     }
 
     setTimeout(() => {
-      // Clear staff session tokens to log out
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem('sipsave-staff-access-token');
-        window.sessionStorage.removeItem('sipsave-staff-full-name');
-        window.sessionStorage.removeItem('sipsave-staff-role');
-        // Reset state for next launch
-        resetTabletState();
-      }
-      router.push('/login');
+      clearStaffSession();
+      resetTabletState();
+      router.push('/login?staff=1');
     }, 800);
   };
 
@@ -50,12 +45,9 @@ export default function ShiftSummaryPage() {
     setEnding(true);
 
     setTimeout(() => {
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem('sipsave-staff-access-token');
-        window.sessionStorage.removeItem('sipsave-staff-full-name');
-        resetTabletState();
-      }
-      router.push('/login');
+      clearStaffSession();
+      resetTabletState();
+      router.push('/login?staff=1');
     }, 800);
   };
 
@@ -180,7 +172,7 @@ export default function ShiftSummaryPage() {
               <button
                 onClick={handleEndShift}
                 disabled={ending}
-                className="btn-tablet btn-tablet-p w-full justify-center py-5 text-lg font-black uppercase shadow-glow"
+                className="btn-tablet btn-tablet-a w-full justify-center py-5 text-lg font-black uppercase shadow-glow"
               >
                 {ending ? 'Signing Out...' : 'End Shift & Sign Out'}
               </button>
