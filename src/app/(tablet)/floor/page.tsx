@@ -9,9 +9,12 @@ import { applyPourApiToState, applyQueueUpdatedToState } from '@/lib/pour-dashbo
 import { HubConnectionState } from '@microsoft/signalr';
 import { usePourHub, type QueueUpdatedEvent, type TableStatusChangedEvent } from '@/hooks/usePourHub';
 
-// ─── constants ───────────────────────────────────────────────────────────────
-const POLL_INTERVAL_DISCONNECTED = 10_000;  // 10 s when SignalR is down (was 30 s)
-const POLL_INTERVAL_CONNECTED    = 60_000;  // 60 s heartbeat even when connected
+// ─── refresh strategy ───────────────────────────────────────────────────────
+// * Table availability  — API (`fetchLiveTableStatus`); partial SignalR via
+//   `TableStatusChanged` (backend rarely emits today); full API on pour events.
+// * Pour queue + stats  — SignalR `QueueUpdated` (instant); API on poll/refresh.
+// * Polling             — fallback only; real-time path is SignalR when connected.
+const POLL_INTERVAL_MS = 120_000; // 120 s HTTP heartbeat / offline fallback
 
 type TableStatusFilter = 'occupied' | 'pour-pending' | 'reserved' | 'available';
 
@@ -157,16 +160,13 @@ export default function FloorPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [refreshDashboard]);
 
-  // ─── polling fallback (adaptive interval) ─────────────────────────────────
+  // ─── polling fallback (120 s) — does not replace SignalR real-time updates ─
   useEffect(() => {
-    const isConnected = connectionState === HubConnectionState.Connected;
-    // Still poll when connected — acts as a heartbeat to catch any missed events
-    const interval = setInterval(
-      () => { void refreshDashboard(); },
-      isConnected ? POLL_INTERVAL_CONNECTED : POLL_INTERVAL_DISCONNECTED
-    );
+    const interval = setInterval(() => {
+      void refreshDashboard();
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [connectionState, refreshDashboard]);
+  }, [refreshDashboard]);
 
   // ─── connection-state change: immediately re-fetch when SignalR reconnects ─
   const prevConnectionStateRef = useRef<HubConnectionState | null>(null);
@@ -232,7 +232,7 @@ export default function FloorPage() {
       case HubConnectionState.Connected:     return '🟢 Real-time';
       case HubConnectionState.Connecting:
       case HubConnectionState.Reconnecting:  return '🟡 Connecting…';
-      default:                               return '🔄 Polling (10 s)';
+      default:                               return '🔄 Polling (120 s)';
     }
   })();
 
