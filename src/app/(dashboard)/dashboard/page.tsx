@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { setActiveBarDetails } from '@/lib/active-bar';
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { setActiveBarDetails } from "@/lib/active-bar";
 import {
   ApiError,
   getDashboard,
@@ -11,16 +11,17 @@ import {
   downloadRevenueExport,
   type BarTableDto,
   type DashboardDto,
-} from '@/lib/api-client';
-import Link from 'next/link';
-import { QRCodeSVG } from 'qrcode.react';
+  BarTable,
+  downloadBarTableQrBundle,
+} from "@/lib/api-client";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardDto | null>(null);
   const [barId, setBarId] = useState<number | null>(null);
-  const [barName, setBarName] = useState('');
-  const [ownerName, setOwnerName] = useState('Owner');
+  const [barName, setBarName] = useState("");
+  const [ownerName, setOwnerName] = useState("Owner");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +29,43 @@ export default function DashboardPage() {
   const [qrTables, setQrTables] = useState<BarTableDto[]>([]);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [tables, setTables] = useState<BarTable[]>([]);
+  const [bundleDownloading, setBundleDownloading] = useState(false);
 
   useEffect(() => {
     void init();
   }, []);
+
+  const refresh = useCallback(async () => {
+    if (!barId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listBarTables(barId);
+      setTables(rows);
+    } catch (ex) {
+      setError(ex instanceof ApiError ? ex.message : "Network error.");
+    } finally {
+      setLoading(false);
+    }
+  }, [barId]);
+
+  useEffect(() => {
+    if (barId) refresh();
+  }, [barId, refresh]);
+
+  async function onDownloadBundle() {
+    if (!barId) return;
+    setBundleDownloading(true);
+    setError(null);
+    try {
+      await downloadBarTableQrBundle(barId);
+    } catch (ex) {
+      setError(ex instanceof ApiError ? ex.message : "Download failed.");
+    } finally {
+      setBundleDownloading(false);
+    }
+  }
 
   async function init() {
     try {
@@ -48,22 +82,24 @@ export default function DashboardPage() {
           setActiveBarDetails(bar);
         }
       } catch (barErr) {
-        console.error('Failed to fetch bar details:', barErr);
+        console.error("Failed to fetch bar details:", barErr);
         if (barErr instanceof ApiError && barErr.status === 401) {
-          router.replace('/login');
+          router.replace("/login");
           return;
         }
-        router.replace('/register/kyc-status');
+        router.replace("/register/kyc-status");
         return;
       }
 
-      if (typeof window !== 'undefined') {
-        const storedName = window.sessionStorage.getItem('sipsave-barowner-full-name');
+      if (typeof window !== "undefined") {
+        const storedName = window.sessionStorage.getItem(
+          "sipsave-barowner-full-name",
+        );
         if (storedName) setOwnerName(storedName);
       }
 
       if (!bar) {
-        router.replace('/register/kyc-status');
+        router.replace("/register/kyc-status");
         return;
       }
 
@@ -75,25 +111,27 @@ export default function DashboardPage() {
       setData(dashboardData);
       setQrTables(tableData);
     } catch (err) {
-      console.error('Dashboard load error:', err);
+      console.error("Dashboard load error:", err);
       if (err instanceof ApiError && err.status === 401) {
-        router.replace('/login');
+        router.replace("/login");
         return;
       }
-      setError(err instanceof ApiError ? err.message : 'Failed to load dashboard data');
+      setError(
+        err instanceof ApiError ? err.message : "Failed to load dashboard data",
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleExport(format: 'pdf' | 'csv') {
+  async function handleExport(format: "pdf" | "csv") {
     if (!barId) return;
     try {
       setExporting(true);
-      await downloadRevenueExport(barId, format, 'ThisMonth');
+      await downloadRevenueExport(barId, format, "ThisMonth");
     } catch (err) {
-      console.error('Export failed:', err);
-      alert('Failed to export report. Please try again later.');
+      console.error("Export failed:", err);
+      alert("Failed to export report. Please try again later.");
     } finally {
       setExporting(false);
     }
@@ -107,8 +145,10 @@ export default function DashboardPage() {
       const tables = await listBarTables(activeBarId);
       return tables;
     } catch (err) {
-      console.error('QR table load error:', err);
-      setQrError(err instanceof ApiError ? err.message : 'Failed to load table QR codes');
+      console.error("QR table load error:", err);
+      setQrError(
+        err instanceof ApiError ? err.message : "Failed to load table QR codes",
+      );
       return [];
     } finally {
       setQrLoading(false);
@@ -117,9 +157,11 @@ export default function DashboardPage() {
 
   async function openQrModal() {
     setShowQrModal(true);
-    if (barId && qrTables.length === 0 && !qrLoading) {
-      setQrTables(await loadQrTables(barId));
-    }
+    if (barId) refresh();
+    // barId, refresh
+    // if (barId && qrTables.length === 0 && !qrLoading) {
+    //   setQrTables(await loadQrTables(barId));
+    // }
   }
 
   if (loading) {
@@ -130,9 +172,11 @@ export default function DashboardPage() {
     return (
       <div className="p-8">
         <div className="rounded-xl border border-danger/20 bg-danger-tint p-6 text-danger">
-          <h3 className="font-display text-lg font-bold">Failed to load dashboard</h3>
+          <h3 className="font-display text-lg font-bold">
+            Failed to load dashboard
+          </h3>
           <p className="mt-1 text-sm opacity-90">{error}</p>
-          <button 
+          <button
             onClick={() => init()}
             className="mt-4 btn btn-sm bg-danger text-white hover:bg-danger/90"
           >
@@ -151,14 +195,14 @@ export default function DashboardPage() {
 
   const handleDownloadPDF = () => {
     if (qrTables.length === 0) return;
-    const printWindow = window.open('', '', 'width=800,height=800');
+    const printWindow = window.open("", "", "width=800,height=800");
     if (!printWindow) {
-      alert('Please allow popups to download the PDF.');
+      alert("Please allow popups to download the PDF.");
       return;
     }
 
-    const svgElements = document.querySelectorAll('.qr-code-svg');
-    
+    const svgElements = document.querySelectorAll(".qr-code-svg");
+
     let content = `
       <html>
         <head>
@@ -185,7 +229,7 @@ export default function DashboardPage() {
     `;
 
     qrTables.forEach((table, index) => {
-      const svg = svgElements[index]?.outerHTML || '';
+      const svg = svgElements[index]?.outerHTML || "";
       content += `
         <div class="card">
           ${svg}
@@ -219,21 +263,23 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-ink">Dashboard</h1>
-          <p className="text-sm text-muted mt-1">Welcome back, {ownerName} · {barName}</p>
+          <p className="text-sm text-muted mt-1">
+            Welcome back, {ownerName} · {barName}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 text-[11px] font-bold">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Subscription Active
           </div>
-          <button 
+          <button
             onClick={openQrModal}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-lg shadow-sm text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
           >
             <IconQrCode className="h-4 w-4 text-slate-500" />
             View Bar QR Codes
           </button>
-          <Link 
+          <Link
             href="/inventory/add"
             className="flex items-center gap-2 px-4 py-2 bg-[#5e5ce6] hover:bg-[#4a48c9] text-white rounded-lg shadow-sm text-[11px] font-bold transition-colors"
           >
@@ -250,7 +296,10 @@ export default function DashboardPage() {
             <IconAlertCircle className="h-5 w-5" />
             <div>
               <p className="text-sm font-bold">Subscription Payment Failing</p>
-              <p className="text-xs opacity-90">{subscription.lastFailureReason || 'Please update your billing details to avoid service interruption.'}</p>
+              <p className="text-xs opacity-90">
+                {subscription.lastFailureReason ||
+                  "Please update your billing details to avoid service interruption."}
+              </p>
             </div>
           </div>
           <Link href="/subscription" className="btn btn-sm btn-primary">
@@ -288,7 +337,11 @@ export default function DashboardPage() {
         <KpiCard
           label="Expiry Risk (7 days)"
           value={kpis.expiryRiskCount.toString()}
-          trend={kpis.expiryRiskCount > 0 ? "⚠ Action recommended" : "Everything safe"}
+          trend={
+            kpis.expiryRiskCount > 0
+              ? "⚠ Action recommended"
+              : "Everything safe"
+          }
           trendType={kpis.expiryRiskCount > 0 ? "danger" : "success"}
           topBorder="border-danger"
           index={3}
@@ -297,26 +350,31 @@ export default function DashboardPage() {
 
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Revenue Trend Chart */}
-        <section className="reveal lg:col-span-2" style={{ '--index': 4 } as any}>
+        <section
+          className="reveal lg:col-span-2"
+          style={{ "--index": 4 } as any}
+        >
           <div className="panel p-6 h-full border-t-0">
             <div className="mb-8 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-ink">Wallet Revenue — Last 7 Days</h3>
+                <h3 className="text-lg font-bold text-ink">
+                  Wallet Revenue — Last 7 Days
+                </h3>
               </div>
               <div className="flex gap-2">
-                <button 
+                <button
                   disabled={exporting}
-                  onClick={() => handleExport('pdf')}
+                  onClick={() => handleExport("pdf")}
                   className="btn btn-sm btn-secondary bg-[#f3f4f6] border-none text-[11px] font-bold text-slate-600 px-3 hover:bg-slate-200"
                 >
-                  {exporting ? '...' : 'Export PDF'}
+                  {exporting ? "..." : "Export PDF"}
                 </button>
-                <button 
+                <button
                   disabled={exporting}
-                  onClick={() => handleExport('csv')}
+                  onClick={() => handleExport("csv")}
                   className="btn btn-sm btn-secondary bg-[#f3f4f6] border-none text-[11px] font-bold text-slate-600 px-3 hover:bg-slate-200"
                 >
-                  {exporting ? '...' : 'Export Excel'}
+                  {exporting ? "..." : "Export Excel"}
                 </button>
               </div>
             </div>
@@ -411,21 +469,29 @@ export default function DashboardPage() {
         </section>
 
         {/* Top Bottles */}
-        <section className="reveal" style={{ '--index': 5 } as any}>
+        <section className="reveal" style={{ "--index": 5 } as any}>
           <div className="panel p-6 h-full">
-            <h3 className="mb-6 text-lg font-bold text-ink">Top Bottles by Revenue</h3>
+            <h3 className="mb-6 text-lg font-bold text-ink">
+              Top Bottles by Revenue
+            </h3>
             <div className="space-y-6">
               {topBottles.length > 0 ? (
                 topBottles.slice(0, 5).map((bottle) => (
                   <div key={bottle.bottleCatalogueId} className="group">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-bold text-ink-2">{bottle.brandName} {bottle.productName}</p>
-                      <p className="text-sm font-bold text-[#5e5ce6]">{formatCompactCurrency(bottle.revenueInPaise)}</p>
+                      <p className="text-sm font-bold text-ink-2">
+                        {bottle.brandName} {bottle.productName}
+                      </p>
+                      <p className="text-sm font-bold text-[#5e5ce6]">
+                        {formatCompactCurrency(bottle.revenueInPaise)}
+                      </p>
                     </div>
                     <div className="h-2 w-full rounded-full bg-ivory-2 overflow-hidden">
-                      <div 
-                        className="h-full bg-[#5e5ce6] group-hover:bg-[#4a48c9] transition-all duration-700 rounded-full" 
-                        style={{ width: `${(bottle.revenueInPaise / topBottles[0].revenueInPaise) * 100}%` }}
+                      <div
+                        className="h-full bg-[#5e5ce6] group-hover:bg-[#4a48c9] transition-all duration-700 rounded-full"
+                        style={{
+                          width: `${(bottle.revenueInPaise / topBottles[0].revenueInPaise) * 100}%`,
+                        }}
                       />
                     </div>
                   </div>
@@ -441,7 +507,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Wallet Purchases */}
-      <section className="reveal" style={{ '--index': 6 } as any}>
+      <section className="reveal" style={{ "--index": 6 } as any}>
         <div className="panel overflow-hidden">
           <div className="p-6 border-b border-border flex items-center justify-between">
             <h3 className="text-lg font-bold text-ink">Recent Wallet Purchases</h3>
@@ -466,33 +532,51 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-orange-900/10 bg-[#df8b0b]">
                 {recentTransactions.length > 0 ? (
                   recentTransactions.map((tx) => (
-                    <tr key={tx.paymentId} className="hover:bg-white/5 transition-colors border-b border-orange-900/10">
+                    <tr
+                      key={tx.paymentId}
+                      className="hover:bg-white/5 transition-colors border-b border-orange-900/10"
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${getUserColor(tx.paymentId)}`}>
+                          <div
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${getUserColor(tx.paymentId)}`}
+                          >
                             {tx.purpose.substring(0, 1)}
                           </div>
-                          <span className="font-bold text-ink-2">{tx.purpose.split(' ')[0]} M.</span>
+                          <span className="font-bold text-ink-2">
+                            {tx.purpose.split(" ")[0]} M.
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 font-bold text-ink-3">
-                        {tx.purpose.includes('Purchase') ? 'JW Black Label' : tx.purpose}
+                        {tx.purpose.includes("Purchase")
+                          ? "JW Black Label"
+                          : tx.purpose}
                       </td>
-                      <td className="px-6 py-4 text-muted font-medium">750ml</td>
+                      <td className="px-6 py-4 text-muted font-medium">
+                        750ml
+                      </td>
                       <td className="px-6 py-4 font-bold text-[#5e5ce6] tabular-nums">
                         {formatCurrency(tx.amountInPaise)}
                       </td>
-                      <td className="px-6 py-4 text-muted font-medium">{tx.paymentMethod || 'UPI'}</td>
+                      <td className="px-6 py-4 text-muted font-medium">
+                        {tx.paymentMethod || "UPI"}
+                      </td>
                       <td className="px-6 py-4 text-muted font-medium tabular-nums">
-                        {new Date(tx.capturedAtUtc).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: true
-                        })}
+                        {new Date(tx.capturedAtUtc).toLocaleTimeString(
+                          "en-IN",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          },
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`status-pill ${tx.status === 'Captured' ? 'status-success' : 'status-danger opacity-80'}`}>
-                          {tx.status === 'Captured' ? 'Captured' : 'Failed'}
+                        <span
+                          className={`status-pill ${tx.status === "Captured" ? "status-success" : "status-danger opacity-80"}`}
+                        >
+                          {tx.status === "Captured" ? "Captured" : "Failed"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -501,14 +585,19 @@ export default function DashboardPage() {
                             View
                           </Link>
                         ) : (
-                          <span className="text-[10px] text-muted italic">No wallet</span>
+                          <span className="text-[10px] text-muted italic">
+                            No wallet
+                          </span>
                         )}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-muted italic">
+                    <td
+                      colSpan={8}
+                      className="px-6 py-12 text-center text-muted italic"
+                    >
                       No recent purchases found
                     </td>
                   </tr>
@@ -540,17 +629,18 @@ export default function DashboardPage() {
               <div>
                 <h3 className="text-xl font-bold text-ink">Bar QR Codes</h3>
                 <p className="text-sm text-slate-500 mt-1">
-                  Print and place these QR codes on each table. Customers scan them to check in via the SipSave app.
+                  Print and place these QR codes on each table. Customers scan
+                  them to check in via the SipSave app.
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowQrModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors"
               >
                 ×
               </button>
             </div>
-            
+
             <div className="p-8 overflow-y-auto flex-1">
               {qrLoading ? (
                 <div className="py-16 text-center text-sm font-semibold text-slate-500">
@@ -566,26 +656,50 @@ export default function DashboardPage() {
                     Retry
                   </button>
                 </div>
-              ) : qrTables.length === 0 ? (
+              ) : tables.length === 0 ? (
                 <div className="py-16 text-center text-sm font-semibold text-slate-500">
                   No tables found for this bar yet.
                 </div>
               ) : (
                 <div className="flex flex-wrap justify-center gap-8">
-                  {qrTables.map(table => (
-                    <div key={table.id} className="flex flex-col items-center bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                  {tables.map((table) => (
+                    <div
+                      key={table.id}
+                      className="flex flex-col items-center bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+                    >
                       <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
-                        <QRCodeSVG 
+                        {/* <QRCodeSVG
                           className="qr-code-svg"
-                          value={`https://app.sipsave.com/t/${table.qrToken}`} 
+                          value={`https://app.sipsave.com/t/${table.qrToken}`}
                           size={150}
                           level="H"
                           includeMargin={false}
-                        />
+                        /> */}
+                        {/* <div className="flex items-center justify-center rounded-2xl bg-white p-4 shadow-sm border border-gray-200">
+                          <img
+                            src={`data:image/png;base64,${table?.imageData}`}
+                            alt="QR Code"
+                            className="qr-code-svg h-[150px] w-[150px] object-contain"
+                          />
+                        </div> */}
+
+                        <div className="inline-flex items-center justify-center rounded-2xl bg-white p-4 ring-1 ring-black/5 shadow-md">
+                          <img
+                            src={`data:image/png;base64,${table?.imageData}`}
+                            alt={`QR for Table ${table.tableNumber}`}
+                            className="qr-code-svg w-[150px] h-[150px] object-contain"
+                            loading="lazy"
+                          />
+                        </div>
                       </div>
-                      <p className="font-bold text-ink-2 text-lg">{table.tableNumber}</p>
-                      <p className="text-[10px] text-slate-400 font-mono mt-1 w-32 truncate text-center" title={table.qrToken}>
-                        {table.qrToken}
+                      <p className="font-bold text-ink-2 text-lg">
+                        Table {table.tableNumber}
+                      </p>
+                      <p
+                        className="text-[10px] text-slate-400 font-mono mt-1 w-32 truncate text-center"
+                        title={table.floorSection || undefined}
+                      >
+                        {table.floorSection}
                       </p>
                     </div>
                   ))}
@@ -594,10 +708,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-center">
-              <button 
+              <button
                 disabled={qrTables.length === 0 || qrLoading}
                 className="btn btn-primary w-full max-w-md bg-[#5e5ce6] hover:bg-[#4a48c9] text-white py-3 rounded-lg font-bold shadow-md shadow-indigo-200"
-                onClick={handleDownloadPDF}
+                onClick={onDownloadBundle}
               >
                 Download All QR Codes (PDF)
               </button>
@@ -609,21 +723,40 @@ export default function DashboardPage() {
   );
 }
 
-function KpiCard({ label, value, trend, trendType, topBorder, index }: { 
-  label: string; 
-  value: string; 
-  trend: string; 
-  trendType: 'success' | 'warning' | 'danger';
+function KpiCard({
+  label,
+  value,
+  trend,
+  trendType,
+  topBorder,
+  index,
+}: {
+  label: string;
+  value: string;
+  trend: string;
+  trendType: "success" | "warning" | "danger";
   topBorder: string;
-  index: number 
+  index: number;
 }) {
-  const trendColor = trendType === 'success' ? 'text-success' : trendType === 'warning' ? 'text-warning' : 'text-danger';
-  
+  const trendColor =
+    trendType === "success"
+      ? "text-success"
+      : trendType === "warning"
+        ? "text-warning"
+        : "text-danger";
+
   return (
-    <div className={`reveal panel p-6 pt-5 group hover:shadow-md transition-all border-t-4 ${topBorder}`} style={{ '--index': index } as any}>
-      <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-2">{label}</p>
+    <div
+      className={`reveal panel p-6 pt-5 group hover:shadow-md transition-all border-t-4 ${topBorder}`}
+      style={{ "--index": index } as any}
+    >
+      <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-2">
+        {label}
+      </p>
       <p className="text-3xl font-bold text-ink mb-2 tabular-nums">{value}</p>
-      <p className={`text-[11px] font-bold flex items-center gap-1 ${trendColor}`}>
+      <p
+        className={`text-[11px] font-bold flex items-center gap-1 ${trendColor}`}
+      >
         {trend}
       </p>
     </div>
@@ -648,9 +781,9 @@ function DashboardSkeleton() {
 }
 
 function formatCurrency(paise: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     maximumFractionDigits: 0,
   }).format(paise / 100);
 }
@@ -672,23 +805,39 @@ function formatCompactCurrency(paise: number) {
 }
 
 function getUserColor(id: number) {
-  const colors = ['bg-orange-500', 'bg-blue-600', 'bg-slate-500', 'bg-indigo-700', 'bg-violet-600'];
+  const colors = [
+    "bg-orange-500",
+    "bg-blue-600",
+    "bg-slate-500",
+    "bg-indigo-700",
+    "bg-violet-600",
+  ];
   return colors[id % colors.length];
 }
 
 function escapeHtml(value: string) {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // Icons
 function IconAlertTriangle({ className }: { className?: string }) {
   return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
       <line x1="12" y1="9" x2="12" y2="13"></line>
       <line x1="12" y1="17" x2="12.01" y2="17"></line>
@@ -698,7 +847,17 @@ function IconAlertTriangle({ className }: { className?: string }) {
 
 function IconAlertCircle({ className }: { className?: string }) {
   return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="10"></circle>
       <line x1="12" y1="8" x2="12" y2="12"></line>
       <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -708,7 +867,17 @@ function IconAlertCircle({ className }: { className?: string }) {
 
 function IconEdit({ className }: { className?: string }) {
   return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
     </svg>
@@ -717,7 +886,17 @@ function IconEdit({ className }: { className?: string }) {
 
 function IconQrCode({ className }: { className?: string }) {
   return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="3" width="7" height="7"></rect>
       <rect x="14" y="3" width="7" height="7"></rect>
       <rect x="14" y="14" width="7" height="7"></rect>
@@ -732,7 +911,17 @@ function IconQrCode({ className }: { className?: string }) {
 
 function IconPlus({ className }: { className?: string }) {
   return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="12" y1="5" x2="12" y2="19"></line>
       <line x1="5" y1="12" x2="19" y2="12"></line>
     </svg>

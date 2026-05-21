@@ -1,6 +1,9 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { Sidebar } from '@/components/dashboard/Sidebar';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 /**
  * Dashboard shell — sidebar + main content area.
@@ -8,15 +11,17 @@ import { Sidebar } from '@/components/dashboard/Sidebar';
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="page-shell lg:flex">
-      <Sidebar barName="Your Bar" />
-      <div className="min-w-0 flex-1">
-        <DashboardHeader fallbackBarName="Your Bar" />
+    <AuthGuard allowedTokens={['sipsave-barowner-access-token']}>
+      <div className="page-shell lg:flex">
+        <Sidebar barName="Your Bar" />
+        <div className="min-w-0 flex-1">
+          <DashboardHeader fallbackBarName="Your Bar" />
 
-        <main className="mx-auto min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {children}
-        </main>
+          <main className="mx-auto min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

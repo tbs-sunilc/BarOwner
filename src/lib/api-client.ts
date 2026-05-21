@@ -5,7 +5,7 @@
  * problem+json body so callers can render the right banner.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.239:5000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.1.239:5000";
 
 export class ApiError extends Error {
   status: number;
@@ -19,13 +19,18 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && init.body) headers.set('Content-Type', 'application/json');
+  if (!headers.has("Content-Type") && init.body)
+    headers.set("Content-Type", "application/json");
 
-  if (typeof window !== 'undefined') {
-    const ownerToken = window.sessionStorage.getItem('sipsave-barowner-access-token');
-    const staffToken = window.sessionStorage.getItem('sipsave-staff-access-token');
+  if (typeof window !== "undefined") {
+    const ownerToken = window.sessionStorage.getItem(
+      "sipsave-barowner-access-token",
+    );
+    const staffToken = window.sessionStorage.getItem(
+      "sipsave-staff-access-token",
+    );
     const token = staffToken || ownerToken;
-    if (token) headers.set('Authorization', `Bearer ${token}`);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
@@ -36,7 +41,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = text ? safeParse(text) : null;
   if (!res.ok) {
     const message =
-      (body && typeof body === 'object' && 'title' in (body as Record<string, unknown>)
+      (body &&
+      typeof body === "object" &&
+      "title" in (body as Record<string, unknown>)
         ? String((body as Record<string, unknown>).title)
         : null) ?? res.statusText;
     throw new ApiError(res.status, message, body);
@@ -45,7 +52,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 function safeParse(s: string): unknown {
-  try { return JSON.parse(s); } catch { return s; }
+  try {
+    return JSON.parse(s);
+  } catch {
+    return s;
+  }
 }
 
 function assertValidBarId(barId: number): void {
@@ -73,8 +84,8 @@ export type RegisterOtpResponse = {
 };
 
 export const requestOwnerOtp = (payload: RegisterOtpPayload) =>
-  request<RegisterOtpResponse>('/api/v1/auth/register', {
-    method: 'POST',
+  request<RegisterOtpResponse>("/api/v1/auth/register", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -111,8 +122,8 @@ export type VerifyOtpResponse = {
 };
 
 export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
-  request<VerifyOtpResponse>('/api/v1/auth/verify-otp', {
-    method: 'POST',
+  request<VerifyOtpResponse>("/api/v1/auth/verify-otp", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -135,8 +146,8 @@ export type StaffLoginResponse = {
 };
 
 export const loginStaff = (payload: StaffLoginPayload) =>
-  request<StaffLoginResponse>('/api/v1/staff/auth/login', {
-    method: 'POST',
+  request<StaffLoginResponse>("/api/v1/staff/auth/login", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -169,11 +180,11 @@ export type SubscriptionPlanDto = {
 };
 
 export const getSubscriptionPlans = () =>
-  request<SubscriptionPlanDto[]>('/api/v1/subscriptions/plans');
+  request<SubscriptionPlanDto[]>("/api/v1/subscriptions/plans");
 
 export type SubscribeToPlanPayload = {
   planCode: string;
-  billingCycle: 'Monthly' | 'Annual';
+  billingCycle: "Monthly" | "Annual";
 };
 
 export type SubscribeToPlanResponse = {
@@ -185,9 +196,12 @@ export type SubscribeToPlanResponse = {
   nextBillingDateUtc?: string | null;
 };
 
-export const subscribeToPlan = (barId: number, payload: SubscribeToPlanPayload) =>
+export const subscribeToPlan = (
+  barId: number,
+  payload: SubscribeToPlanPayload,
+) =>
   request<SubscribeToPlanResponse>(`/api/v1/bars/${barId}/subscription`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -224,8 +238,8 @@ export type RegisterBarResponse = {
 };
 
 export const registerBar = (payload: RegisterBarPayload) =>
-  request<RegisterBarResponse>('/api/v1/bars', {
-    method: 'POST',
+  request<RegisterBarResponse>("/api/v1/bars", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -237,9 +251,12 @@ export type SubmitBarDocumentsPayload = {
   logoUrl?: string | null;
 };
 
-export const submitBarDocuments = (barId: number, payload: SubmitBarDocumentsPayload) =>
+export const submitBarDocuments = (
+  barId: number,
+  payload: SubmitBarDocumentsPayload,
+) =>
   request<void>(`/api/v1/bars/${barId}/documents`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -253,8 +270,7 @@ export type BarDetails = {
   verificationQueueMessage: string;
 };
 
-export const getBarDetails = () =>
-  request<BarDetails>('/api/v1/bars/details');
+export const getBarDetails = () => request<BarDetails>("/api/v1/bars/details");
 
 export type BarTableDto = {
   id: number;
@@ -272,7 +288,7 @@ export type BarTableStatusDto = {
   floorSection: string | null;
   isActive: boolean;
   createdAtUtc: string;
-  status: 'Available' | 'Occupied' | 'Reserved' | 'PourPending';
+  status: "Available" | "Occupied" | "Reserved" | "PourPending";
   sessionId: number | null;
   activeGuestCount: number | null;
   customerName: string | null;
@@ -280,12 +296,15 @@ export type BarTableStatusDto = {
   reservationDetails: string | null;
 };
 
-
 // ---------------------------------------------------------------------------
 //  Inventory endpoints (mirrors InventoryItemDto on the server)
 // ---------------------------------------------------------------------------
 
-export type InventoryStockState = 'InStock' | 'LowStock' | 'OutOfStock' | 'Unavailable';
+export type InventoryStockState =
+  | "InStock"
+  | "LowStock"
+  | "OutOfStock"
+  | "Unavailable";
 
 export type InventoryItem = {
   id: number;
@@ -315,9 +334,12 @@ export const listInventory = (barId: number, includeUnavailable = true) =>
     `/api/v1/bars/${barId}/inventory?includeUnavailable=${includeUnavailable}`,
   );
 
-export const setInventoryAvailability = (inventoryId: number, isAvailable: boolean) =>
+export const setInventoryAvailability = (
+  inventoryId: number,
+  isAvailable: boolean,
+) =>
   request<InventoryItem>(`/api/v1/inventory/${inventoryId}/availability`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify({ isAvailable }),
   });
 
@@ -334,10 +356,14 @@ export type BottleCatalogueSearchHit = {
   alreadyInInventory: boolean;
 };
 
-export const searchBottleCatalogue = (barId: number, q: string, category?: string) => {
+export const searchBottleCatalogue = (
+  barId: number,
+  q: string,
+  category?: string,
+) => {
   const params = new URLSearchParams();
-  if (q) params.set('q', q);
-  if (category) params.set('category', category);
+  if (q) params.set("q", q);
+  if (category) params.set("category", category);
   return request<BottleCatalogueSearchHit[]>(
     `/api/v1/bars/${barId}/inventory/catalogue-search?${params.toString()}`,
   );
@@ -354,9 +380,12 @@ export type AddBottlePayload = {
   isAvailable?: boolean;
 };
 
-export const addBottleToInventory = (barId: number, payload: AddBottlePayload) =>
+export const addBottleToInventory = (
+  barId: number,
+  payload: AddBottlePayload,
+) =>
   request<InventoryItem>(`/api/v1/bars/${barId}/inventory`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -371,20 +400,23 @@ export type UpdateInventoryPayload = {
   stockChangeReason?: string | null;
 };
 
-export const updateInventoryItem = (id: number, payload: UpdateInventoryPayload) =>
+export const updateInventoryItem = (
+  id: number,
+  payload: UpdateInventoryPayload,
+) =>
   request<InventoryItem>(`/api/v1/inventory/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 
 export const deleteInventoryItem = (id: number) =>
-  request<void>(`/api/v1/inventory/${id}`, { method: 'DELETE' });
+  request<void>(`/api/v1/inventory/${id}`, { method: "DELETE" });
 
 // ---------------------------------------------------------------------------
 //  Phase 5 — Sessions & Pour Requests (bartender-tablet surface)
 // ---------------------------------------------------------------------------
 
-export type PourRequestStatus = 'Pending' | 'Served' | 'Cancelled' | 'Rejected';
+export type PourRequestStatus = "Pending" | "Served" | "Cancelled" | "Rejected";
 
 export type PourRequestDto = {
   id: number;
@@ -430,15 +462,15 @@ export type SessionDto = {
   barName: string;
   barTableId: number | null;
   tableNumber: string | null;
-  status: 'Active' | 'Closed' | 'AutoClosed';
+  status: "Active" | "Closed" | "AutoClosed";
   checkedInAtUtc: string;
   lastActivityAtUtc: string;
   activeWalletsAtBar: SessionWalletDto[];
 };
 
 export const createPourRequest = (payload: CreatePourRequestPayload) =>
-  request<PourRequestDto>('/api/v1/pour-requests', {
-    method: 'POST',
+  request<PourRequestDto>("/api/v1/pour-requests", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -446,20 +478,26 @@ export const fetchPourQueue = (barId: number) =>
   request<PourRequestDto[]>(`/api/v1/pour-requests/queue?barId=${barId}`);
 
 export const fetchServedTonight = (barId: number, take = 50) =>
-  request<PourRequestDto[]>(`/api/v1/pour-requests/served-tonight?barId=${barId}&take=${take}`);
+  request<PourRequestDto[]>(
+    `/api/v1/pour-requests/served-tonight?barId=${barId}&take=${take}`,
+  );
 
 export const fetchPourRequest = (id: number) =>
   request<PourRequestDto>(`/api/v1/pour-requests/${id}`);
 
-export const servePourRequest = (id: number, servedMl: number, staffNotes?: string | null) =>
+export const servePourRequest = (
+  id: number,
+  servedMl: number,
+  staffNotes?: string | null,
+) =>
   request<PourRequestDto>(`/api/v1/pour-requests/${id}/serve`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify({ servedMl, staffNotes: staffNotes ?? null }),
   });
 
 export const rejectPourRequest = (id: number, reason: string) =>
   request<PourRequestDto>(`/api/v1/pour-requests/${id}/cancel`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify({ reason }),
   });
 
@@ -467,8 +505,8 @@ export const rejectPourRequest = (id: number, reason: string) =>
 //  Phase 6 — Offers, Loyalty, Campaigns (bar-owner surface)
 // ---------------------------------------------------------------------------
 
-export type OfferType = 'HappyHour' | 'BrandPromo' | 'FlashPrice' | 'Referral';
-export type DiscountType = 'Percent' | 'FlatAmount' | 'BuyXGetY';
+export type OfferType = "HappyHour" | "BrandPromo" | "FlashPrice" | "Referral";
+export type DiscountType = "Percent" | "FlatAmount" | "BuyXGetY";
 
 export type OfferDto = {
   id: number;
@@ -522,17 +560,19 @@ export type CreateOfferPayload = {
 };
 
 export const listOffers = (barId: number, includeInactive = false) =>
-  request<OfferDto[]>(`/api/v1/bars/${barId}/offers?includeInactive=${includeInactive}`);
+  request<OfferDto[]>(
+    `/api/v1/bars/${barId}/offers?includeInactive=${includeInactive}`,
+  );
 
 export const createOffer = (barId: number, payload: CreateOfferPayload) =>
   request<OfferDto>(`/api/v1/bars/${barId}/offers`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
 export const setOfferActive = (offerId: number, isActive: boolean) =>
   request<OfferDto>(`/api/v1/offers/${offerId}/active`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify({ isActive }),
   });
 
@@ -554,7 +594,7 @@ export type ProgrammeDto = {
   isActive: boolean;
 };
 
-export type ConfigureProgrammePayload = Omit<ProgrammeDto, 'id' | 'barId'>;
+export type ConfigureProgrammePayload = Omit<ProgrammeDto, "id" | "barId">;
 
 export type ProgrammeStatsDto = {
   memberCount: number;
@@ -567,9 +607,12 @@ export type ProgrammeStatsDto = {
 export const getLoyaltyProgramme = (barId: number) =>
   request<ProgrammeDto | undefined>(`/api/v1/bars/${barId}/loyalty/programme`);
 
-export const saveLoyaltyProgramme = (barId: number, payload: ConfigureProgrammePayload) =>
+export const saveLoyaltyProgramme = (
+  barId: number,
+  payload: ConfigureProgrammePayload,
+) =>
   request<ProgrammeDto>(`/api/v1/bars/${barId}/loyalty/programme`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 
@@ -611,16 +654,21 @@ export type CampaignHistoryDto = {
 };
 
 export const listDormantUsers = (barId: number, daysInactive = 30) =>
-  request<DormantUserDto[]>(`/api/v1/bars/${barId}/campaigns/dormant-users?daysInactive=${daysInactive}`);
+  request<DormantUserDto[]>(
+    `/api/v1/bars/${barId}/campaigns/dormant-users?daysInactive=${daysInactive}`,
+  );
 
-export const createCampaign = (barId: number, payload: {
-  subject: string;
-  bodyTemplate: string;
-  userIds: number[];
-  channels?: ('Push' | 'Whatsapp')[];
-}) =>
+export const createCampaign = (
+  barId: number,
+  payload: {
+    subject: string;
+    bodyTemplate: string;
+    userIds: number[];
+    channels?: ("Push" | "Whatsapp")[];
+  },
+) =>
   request<CampaignResultDto>(`/api/v1/bars/${barId}/campaigns`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
@@ -683,7 +731,11 @@ export const getDashboard = (barId: number) =>
 
 // ---- Revenue ----
 
-export type RevenueRangePreset = 'ThisMonth' | 'LastMonth' | 'Last3Months' | 'Custom';
+export type RevenueRangePreset =
+  | "ThisMonth"
+  | "LastMonth"
+  | "Last3Months"
+  | "Custom";
 
 export type GstRowDto = {
   exGstInPaise: number;
@@ -724,14 +776,16 @@ export type RevenueReportDto = {
 
 export const getRevenueReport = (
   barId: number,
-  preset: RevenueRangePreset = 'ThisMonth',
+  preset: RevenueRangePreset = "ThisMonth",
   from?: string,
   to?: string,
 ) => {
   const q = new URLSearchParams({ preset });
-  if (from) q.set('from', from);
-  if (to) q.set('to', to);
-  return request<RevenueReportDto>(`/api/v1/bars/${barId}/revenue?${q.toString()}`);
+  if (from) q.set("from", from);
+  if (to) q.set("to", to);
+  return request<RevenueReportDto>(
+    `/api/v1/bars/${barId}/revenue?${q.toString()}`,
+  );
 };
 
 // ---- Wallet purchases ----
@@ -823,23 +877,35 @@ export const getWalletPurchaseDetail = (barId: number, paymentId: number) => {
  */
 export async function downloadRevenueExport(
   barId: number,
-  format: 'pdf' | 'csv',
-  preset: RevenueRangePreset = 'ThisMonth',
+  format: "pdf" | "csv",
+  preset: RevenueRangePreset = "ThisMonth",
   from?: string,
   to?: string,
 ): Promise<void> {
   const q = new URLSearchParams({ format, preset });
-  if (from) q.set('from', from);
-  if (to) q.set('to', to);
+  if (from) q.set("from", from);
+  if (to) q.set("to", to);
   const headers = new Headers();
-  if (typeof window !== 'undefined') {
-    const token = window.sessionStorage.getItem('sipsave-barowner-access-token');
-    if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (typeof window !== "undefined") {
+    const token = window.sessionStorage.getItem(
+      "sipsave-barowner-access-token",
+    );
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
-  const res = await fetch(`${BASE_URL}/api/v1/bars/${barId}/revenue/export?${q.toString()}`, { headers });
-  if (!res.ok) throw new ApiError(res.status, res.statusText, await res.text().catch(() => null));
+  const res = await fetch(
+    `${BASE_URL}/api/v1/bars/${barId}/revenue/export?${q.toString()}`,
+    { headers },
+  );
+  if (!res.ok)
+    throw new ApiError(
+      res.status,
+      res.statusText,
+      await res.text().catch(() => null),
+    );
   const blob = await res.blob();
-  const filename = parseFilename(res.headers.get('Content-Disposition')) ?? `revenue.${format}`;
+  const filename =
+    parseFilename(res.headers.get("Content-Disposition")) ??
+    `revenue.${format}`;
   triggerDownload(blob, filename);
 }
 
@@ -851,7 +917,7 @@ function parseFilename(header: string | null): string | null {
 
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -868,7 +934,7 @@ export type StaffRowDto = {
   fullName: string;
   mobileNumber: string;
   email: string | null;
-  role: 'Manager' | 'Bartender';
+  role: "Manager" | "Bartender";
   isActive: boolean;
   mustResetPassword: boolean;
   lastLoginAtUtc: string | null;
@@ -882,7 +948,7 @@ export type CreateStaffPayload = {
   mobileNumber: string;
   email?: string | null;
   password: string;
-  role: 'Manager' | 'Bartender';
+  role: "Manager" | "Bartender";
 };
 
 export const listStaff = (barId: number) =>
@@ -890,13 +956,13 @@ export const listStaff = (barId: number) =>
 
 export const createStaff = (barId: number, payload: CreateStaffPayload) =>
   request<StaffRowDto>(`/api/v1/bars/${barId}/staff`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
 export const setStaffActive = (staffId: number, isActive: boolean) =>
   request<StaffRowDto>(`/api/v1/staff/${staffId}/active`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify({ isActive }),
   });
 
@@ -913,6 +979,7 @@ export type BarTable = {
   floorSection: string | null;
   isActive: boolean;
   createdAtUtc: string;
+  imageData: string | null;
 };
 
 export type CreateBarTableSpec = {
@@ -921,45 +988,70 @@ export type CreateBarTableSpec = {
   floorSection?: string | null;
 };
 
-export const listBarTables = (barId: number) =>
-{
+export const listBarTables = (barId: number) => {
   assertValidBarId(barId);
   return request<BarTable[]>(`/api/v1/bars/${barId}/tables`);
 };
 
-export const listBarTablesWithStatus = (barId: number) =>
-{
+export const listBarTablesWithStatus = (barId: number) => {
   assertValidBarId(barId);
-  return request<BarTableStatusDto[]>(`/api/v1/bars/${barId}/tables/availability`);
+  return request<BarTableStatusDto[]>(
+    `/api/v1/bars/${barId}/tables/availability`,
+  );
 };
 
 export const createBarTables = (barId: number, tables: CreateBarTableSpec[]) =>
   request<BarTable[]>(`/api/v1/bars/${barId}/tables`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify({ tables }),
   });
 
-export async function downloadBarTableQrPng(barId: number, tableId: number, tableNumber: string): Promise<void> {
+export async function downloadBarTableQrPng(
+  barId: number,
+  tableId: number,
+  tableNumber: string,
+): Promise<void> {
   const headers = new Headers();
-  if (typeof window !== 'undefined') {
-    const token = window.sessionStorage.getItem('sipsave-barowner-access-token');
-    if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (typeof window !== "undefined") {
+    const token = window.sessionStorage.getItem(
+      "sipsave-barowner-access-token",
+    );
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
-  const res = await fetch(`${BASE_URL}/api/v1/bars/${barId}/tables/${tableId}/qr-code`, { headers });
-  if (!res.ok) throw new ApiError(res.status, res.statusText, await res.text().catch(() => null));
+  const res = await fetch(
+    `${BASE_URL}/api/v1/bars/${barId}/tables/${tableId}/qr-code`,
+    { headers },
+  );
+  if (!res.ok)
+    throw new ApiError(
+      res.status,
+      res.statusText,
+      await res.text().catch(() => null),
+    );
   const blob = await res.blob();
   triggerDownload(blob, `table-${tableNumber}-qr.png`);
 }
 
 export async function downloadBarTableQrBundle(barId: number): Promise<void> {
   const headers = new Headers();
-  if (typeof window !== 'undefined') {
-    const token = window.sessionStorage.getItem('sipsave-barowner-access-token');
-    if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (typeof window !== "undefined") {
+    const token = window.sessionStorage.getItem(
+      "sipsave-barowner-access-token",
+    );
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
-  const res = await fetch(`${BASE_URL}/api/v1/bars/${barId}/qr-codes`, { headers });
-  if (!res.ok) throw new ApiError(res.status, res.statusText, await res.text().catch(() => null));
+  const res = await fetch(`${BASE_URL}/api/v1/bars/${barId}/qr-codes`, {
+    headers,
+  });
+  if (!res.ok)
+    throw new ApiError(
+      res.status,
+      res.statusText,
+      await res.text().catch(() => null),
+    );
   const blob = await res.blob();
-  const filename = parseFilename(res.headers.get('Content-Disposition')) ?? `sipsave-table-qr-codes-bar-${barId}.pdf`;
+  const filename =
+    parseFilename(res.headers.get("Content-Disposition")) ??
+    `sipsave-table-qr-codes-bar-${barId}.pdf`;
   triggerDownload(blob, filename);
 }
