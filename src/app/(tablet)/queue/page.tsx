@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getTabletState, TabletState } from '@/lib/tablet-state';
 import { getActiveBarId } from '@/lib/active-bar';
 import { fetchPourQueue, fetchServedTonight, type PourRequestDto } from '@/lib/api-client';
-import { usePourHub } from '@/hooks/usePourHub';
+import { usePourHub, type QueueUpdatedEvent, type QueueItemDto, type ServedItemDto } from '@/hooks/usePourHub';
 import { HubConnectionState } from '@microsoft/signalr';
 
 type ServedRow = {
@@ -21,6 +21,7 @@ export default function PourQueuePage() {
   const router = useRouter();
   const [state, setState] = useState<TabletState | null>(null);
   const [servedRows, setServedRows] = useState<ServedRow[]>([]);
+  const [queueItems, setQueueItems] = useState<QueueItemDto[]>([]);
   const refreshInFlightRef = useRef(false);
 
   const refreshData = useCallback(async () => {
@@ -45,10 +46,35 @@ export default function PourQueuePage() {
     }
   }, []);
 
+  // Handle real-time queue updates from SignalR
+  const handleQueueUpdated = useCallback((evt: QueueUpdatedEvent) => {
+    setQueueItems(evt.pendingRequests);
+    setServedRows(evt.servedTonight);
+    
+    // Update state with queue items converted to queue state
+    setState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pourQueue: evt.pendingRequests.map(item => ({
+          id: item.id,
+          tableId: item.tableId,
+          customer: item.customerName,
+          bottle: item.bottleName,
+          walletBalance: item.walletBalanceMl,
+          requestedAmount: item.requestedMl,
+          waitTime: item.waitTime,
+          urgent: item.isUrgent,
+        })),
+      };
+    });
+  }, []);
+
   const { connectionState } = usePourHub(getActiveBarId(), {
     onNewPourRequest: () => { void refreshData(); },
     onPourConfirmed: () => { void refreshData(); },
     onPourCancelled: () => { void refreshData(); },
+    onQueueUpdated: handleQueueUpdated,
   });
 
   useEffect(() => {
@@ -56,6 +82,7 @@ export default function PourQueuePage() {
     void refreshData();
   }, [refreshData]);
 
+  // Only poll as fallback if SignalR is not connected
   useEffect(() => {
     if (connectionState === HubConnectionState.Connected) return;
     const interval = setInterval(() => {
@@ -75,25 +102,41 @@ export default function PourQueuePage() {
   const uiServedRows = servedRows.length > 0 ? servedRows : state.servedPours.map(fromLegacyServedRow);
   const servedCount = uiServedRows.length;
   const totalServedMl = uiServedRows.reduce((sum, row) => sum + row.servedMl, 0);
+  
+  // Use real-time queue items if available, otherwise use state
+  const displayQueue = queueItems.length > 0 
+    ? queueItems.map(item => ({
+        id: item.id,
+        tableId: item.tableId,
+        customer: item.customerName,
+        bottle: item.bottleName,
+        walletBalance: item.walletBalanceMl,
+        requestedAmount: item.requestedMl,
+        waitTime: item.waitTime,
+        urgent: item.isUrgent,
+      }))
+    : state.pourQueue;
 
   return (
     <div>
       <div className="flex justify-between items-end mb-6">
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Pour Requests Queue</h1>
-        <p className="text-sm font-semibold text-slate-500 mt-1">Real-time updates</p>
+        <p className="text-sm font-semibold text-slate-500 mt-1">
+          {connectionState === HubConnectionState.Connected ? '🟢 Real-time' : '🔄 Polling'}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div>
           <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4 flex items-center gap-2">
-            Pending Requests ({state.pourQueue.length})
-            {state.pourQueue.length > 0 && (
+            Pending Requests ({displayQueue.length})
+            {displayQueue.length > 0 && (
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
             )}
           </h3>
 
           <div className="space-y-3">
-            {state.pourQueue.map((req) => {
+            {displayQueue.map((req) => {
               const isUrgent = Boolean(req.urgent);
               const cardClass = isUrgent
                 ? 'border-2 border-[#e11d48] bg-[#fff1f2] hover:border-[#4338ca] hover:shadow-md'
@@ -140,7 +183,7 @@ export default function PourQueuePage() {
               );
             })}
 
-            {state.pourQueue.length === 0 && (
+            {displayQueue.length === 0 && (
               <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-sm">
                 <div className="text-4xl mb-4 grayscale opacity-40">🥃</div>
                 <p className="text-slate-800 font-bold text-lg">Queue is empty</p>

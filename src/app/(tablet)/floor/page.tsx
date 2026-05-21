@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getTabletState, TabletState, saveTabletState, fetchLiveTableStatus } from '@/lib/tablet-state';
 import { getActiveBarId } from '@/lib/active-bar';
 import { HubConnectionState } from '@microsoft/signalr';
-import { usePourHub } from '@/hooks/usePourHub';
+import { usePourHub, type TableStatusChangedEvent } from '@/hooks/usePourHub';
 
 export default function FloorPage() {
   const router = useRouter();
@@ -33,10 +33,52 @@ export default function FloorPage() {
     }
   }, []);
 
+  // Handle real-time table status updates from SignalR
+  const handleTableStatusChanged = useCallback((evt: TableStatusChangedEvent) => {
+    setState(prev => {
+      if (!prev) return prev;
+
+      // Map the API status to frontend status
+      let tableStatus: 'occupied' | 'pour-pending' | 'available' | 'reserved' = 'available';
+      switch (evt.status.toLowerCase()) {
+        case 'occupied':
+          tableStatus = 'occupied';
+          break;
+        case 'pourpending':
+          tableStatus = 'pour-pending';
+          break;
+        case 'reserved':
+          tableStatus = 'reserved';
+          break;
+        default:
+          tableStatus = 'available';
+      }
+
+      // Update the specific table in the tables array
+      const updatedTables = prev.tables.map(table =>
+        table.id === evt.tableId
+          ? {
+              ...table,
+              status: tableStatus,
+              guests: evt.guestCount,
+              sessionTime: evt.sessionTimeLabel,
+              customerName: evt.customerName || undefined,
+              details: evt.reservationDetails || undefined,
+            }
+          : table
+      );
+
+      const next = { ...prev, tables: updatedTables };
+      saveTabletState(next);
+      return next;
+    });
+  }, []);
+
   const { connectionState } = usePourHub(getActiveBarId(), {
     onNewPourRequest: () => { void refreshTables(); },
     onPourConfirmed: () => { void refreshTables(); },
     onPourCancelled: () => { void refreshTables(); },
+    onTableStatusChanged: handleTableStatusChanged,
   });
 
   useEffect(() => {
@@ -60,12 +102,12 @@ export default function FloorPage() {
     void loadData();
   }, [refreshTables]);
 
+  // Only poll as fallback if SignalR is not connected
   useEffect(() => {
     if (connectionState === HubConnectionState.Connected) return;
     const interval = setInterval(() => {
       void refreshTables();
-    }, 30000);
-    return () => clearInterval(interval);
+    }, 30000);    return () => clearInterval(interval);
   }, [connectionState, refreshTables]);
 
   if (!state) {
@@ -97,25 +139,30 @@ export default function FloorPage() {
 
   return (
     <div className="reveal">
-      {/* Legend Row */}
-      <div className="flex flex-wrap gap-4 mb-8 items-center bg-white border border-slate-200 p-4 rounded-lg shadow-sm">
-        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mr-2">Legend:</span>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-[#eef2ff] border-2 border-[#4338ca]"></div>
-          <span className="text-sm font-semibold text-slate-700">Occupied</span>
+      {/* Legend Row with Connection Status */}
+      <div className="flex flex-wrap gap-4 mb-8 items-center bg-white border border-slate-200 p-4 rounded-lg shadow-sm justify-between">
+        <div className="flex flex-wrap gap-4 items-center">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Legend:</span>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-[#eef2ff] border-2 border-[#4338ca]"></div>
+            <span className="text-sm font-semibold text-slate-700">Occupied</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-[#fffbeb] border-2 border-[#d97706]"></div>
+            <span className="text-sm font-semibold text-slate-700">Reserved</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-[#f8fafc] border-2 border-[#e2e8f0]"></div>
+            <span className="text-sm font-semibold text-slate-700">Available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-[#fff1f2] border-2 border-[#e11d48]"></div>
+            <span className="text-sm font-semibold text-slate-700">Pour Pending</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-[#fffbeb] border-2 border-[#d97706]"></div>
-          <span className="text-sm font-semibold text-slate-700">Reserved</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-[#f8fafc] border-2 border-[#e2e8f0]"></div>
-          <span className="text-sm font-semibold text-slate-700">Available</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-[#fff1f2] border-2 border-[#e11d48]"></div>
-          <span className="text-sm font-semibold text-slate-700">Pour Pending</span>
-        </div>
+        <span className="text-sm font-semibold text-slate-500">
+          {connectionState === HubConnectionState.Connected ? '🟢 Real-time' : '🔄 Polling'}
+        </span>
       </div>
 
       {/* Floor Plan Grid */}

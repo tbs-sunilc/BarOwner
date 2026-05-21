@@ -10,10 +10,12 @@ import { useEffect, useRef, useState } from 'react';
 
 /**
  * SignalR hook for the bartender tablet. Subscribes to the `bar_{barId}`
- * group on <c>/hubs/pour</c> and surfaces three event streams:
+ * group on <c>/hubs/pour</c> and surfaces event streams for:
  *   * onNewPourRequest  — SC-21 tile flips to "Pour Requested".
  *   * onPourConfirmed   — tile reverts to Active after bartender serves.
  *   * onPourCancelled   — tile reverts to Active after reject/cancel.
+ *   * onQueueUpdated    — real-time queue state for Pour Queue page.
+ *   * onTableStatusChanged — real-time table status for Floor Plan page.
  *
  * Connection lifecycle: builds with automatic reconnect on mount, tears down
  * on unmount. Access token is pulled from sessionStorage at connect time
@@ -53,10 +55,51 @@ export type PourCancelledEvent = {
   cancelledAtUtc: string;
 };
 
+export type QueueItemDto = {
+  id: number;
+  tableId: number;
+  customerName: string;
+  bottleName: string;
+  walletBalanceMl: number;
+  requestedMl: number;
+  waitTime: string;
+  isUrgent: boolean;
+  walletId: number;
+};
+
+export type ServedItemDto = {
+  time: string;
+  table: string;
+  customer: string;
+  bottle: string;
+  amount: string;
+  servedMl: number;
+};
+
+export type QueueUpdatedEvent = {
+  barId: number;
+  pendingRequests: QueueItemDto[];
+  servedTonight: ServedItemDto[];
+  updatedAtUtc: string;
+};
+
+export type TableStatusChangedEvent = {
+  barId: number;
+  tableId: number;
+  status: string;
+  guestCount: number;
+  sessionTimeLabel: string;
+  customerName: string | null;
+  reservationDetails: string | null;
+  updatedAtUtc: string;
+};
+
 export type PourHubHandlers = {
   onNewPourRequest?: (evt: NewPourRequestEvent) => void;
   onPourConfirmed?: (evt: PourConfirmedEvent) => void;
   onPourCancelled?: (evt: PourCancelledEvent) => void;
+  onQueueUpdated?: (evt: QueueUpdatedEvent) => void;
+  onTableStatusChanged?: (evt: TableStatusChangedEvent) => void;
 };
 
 const HUB_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.239:5000';
@@ -93,6 +136,10 @@ export function usePourHub(barId: number | null, handlers: PourHubHandlers) {
         handlersRef.current.onPourConfirmed?.(evt));
       conn.on('PourCancelled', (evt: PourCancelledEvent) =>
         handlersRef.current.onPourCancelled?.(evt));
+      conn.on('QueueUpdated', (evt: QueueUpdatedEvent) =>
+        handlersRef.current.onQueueUpdated?.(evt));
+      conn.on('TableStatusChanged', (evt: TableStatusChangedEvent) =>
+        handlersRef.current.onTableStatusChanged?.(evt));
 
       conn.onreconnecting(() => setConnectionState(HubConnectionState.Reconnecting));
       conn.onreconnected(async () => {
