@@ -64,7 +64,7 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
       <header className="h-[64px] bg-ink px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm border-b border-[color:var(--color-ink-3)]">
         <div className="flex items-center gap-6">
           <Link href="/floor" className="flex items-center gap-3">
-            <span className="text-2xl">🍾</span>
+            <span className="text-2xl"></span>
             <div>
               <p className="text-[color:var(--color-text-invert)] font-bold text-lg leading-tight">Sky Lounge</p>
               <p className="text-[color:var(--color-text-soft)] text-xs font-medium">{bartenderName} · Shift started 6:00 PM</p>
