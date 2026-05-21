@@ -445,7 +445,7 @@ export default function DashboardPage() {
         <div className="panel overflow-hidden">
           <div className="p-6 border-b border-border flex items-center justify-between">
             <h3 className="text-lg font-bold text-ink">Recent Wallet Purchases</h3>
-            <Link href="/revenue" className="btn btn-sm btn-secondary bg-[#f3f4f6] border-none text-[11px] font-bold text-slate-600 px-3">
+            <Link href="/wallet-purchases" className="btn btn-sm btn-secondary bg-[#f3f4f6] border-none text-[11px] font-bold text-slate-600 px-3">
               View All
             </Link>
           </div>
@@ -497,9 +497,9 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         {tx.status === 'Captured' ? (
-                          <button className="btn btn-sm btn-secondary bg-white border-border text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
+                          <Link href={`/wallet-purchases/${tx.paymentId}`} className="btn btn-sm btn-secondary bg-white border-border text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
                             View
-                          </button>
+                          </Link>
                         ) : (
                           <span className="text-[10px] text-muted italic">No wallet</span>
                         )}
