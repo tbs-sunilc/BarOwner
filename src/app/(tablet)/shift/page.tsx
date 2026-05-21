@@ -87,7 +87,7 @@ export default function ShiftSummaryPage() {
           <div className="bg-indigo-950 text-white p-6 rounded-[28px] shadow-lg relative overflow-hidden">
             <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
             <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Logged Bartender</p>
-            <h2 className="text-2xl font-black tracking-tighter">{state.currentBartender.name}</h2>
+            <h2 className="text-2xl text-white tracking-tighter">{state.currentBartender.name}</h2>
             <div className="flex gap-4 mt-4 text-xs font-bold text-indigo-200">
               <span className="bg-white/10 px-3 py-1 rounded-xl">Timeline: 6:00 PM - 11:41 PM</span>
               <span className="bg-white/10 px-3 py-1 rounded-xl">Duration: 5h 41m</span>
