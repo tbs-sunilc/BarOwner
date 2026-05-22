@@ -75,7 +75,7 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/queue" className="btn-tablet bg-ink-2 text-[color:var(--color-text-invert)] hover:bg-ink-3 border-[color:var(--color-ink-3)] !py-1.5 !px-4">
+          <Link href="/queue" className="btn-tablet btn-tablet-a !py-1.5 !px-4">
             Pour Queue
           </Link>
           <Link href="/floor" className="btn-tablet bg-ink-2 text-[color:var(--color-text-invert)] hover:bg-ink-3 border-[color:var(--color-ink-3)] !py-1.5 !px-4">
