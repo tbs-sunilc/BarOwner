@@ -77,9 +77,9 @@ export default function CustomerLookupPage() {
             </p>
           </div>
         </div>
-        <Link href="/queue" className="btn-tablet btn-tablet-r !py-2.5 !px-5 !text-xs relative">
+        <Link href="/queue" className="btn-tablet btn-tablet-a !py-1.5 !px-4">
           🔔 Pour Queue
-          <span className="ml-1 bg-white text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-black">
+          <span className="ml-1 bg-white text-rose px-2 py-0.5 rounded-full text-[10px] font-black">
             {state.pourQueue.length}
           </span>
         </Link>
