@@ -21,7 +21,7 @@ import {
 } from '@/lib/api-client';
 
 const STARTER: ConfigureProgrammePayload = {
-  name: 'Regulars rewards',
+  name: '  Regulars rewards',
   description: null,
   // Spec default: 1 point per ₹100 ⇒ 0.01 points per rupee.
   pointsPerRupeeSpent: 0.01,
@@ -114,13 +114,13 @@ export default function LoyaltyPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Programme name">
               <input value={form.name} maxLength={120}
-                     onChange={(e) => update('name', e.target.value)}
-                     className="w-full rounded-lg border-slate-300 text-sm" />
+                onChange={(e) => update('name', e.target.value)}
+                className="w-full rounded-lg border-slate-350 text-sm" />
             </Field>
             <Field label="Active">
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.isActive}
-                       onChange={(e) => update('isActive', e.target.checked)} />
+                  onChange={(e) => update('isActive', e.target.checked)} />
                 Accepting new earns + redemptions
               </label>
             </Field>
@@ -128,49 +128,49 @@ export default function LoyaltyPage() {
 
           <Field label="Description (optional)">
             <textarea rows={2} value={form.description ?? ''}
-                      onChange={(e) => update('description', e.target.value || null)}
-                      className="w-full rounded-lg border-slate-300 text-sm" />
+              onChange={(e) => update('description', e.target.value || null)}
+              className="w-full rounded-lg border-slate-300 text-sm" />
           </Field>
 
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Points earned per ₹1 spent">
               <input type="number" min={0} step="0.001" value={form.pointsPerRupeeSpent}
-                     onChange={(e) => update('pointsPerRupeeSpent', Number(e.target.value))}
-                     className="w-full rounded-lg border-slate-300 text-sm" />
+                onChange={(e) => update('pointsPerRupeeSpent', Number(e.target.value))}
+                className="w-full rounded-lg border-slate-300 text-sm" />
               <p className="text-xs text-slate-500 mt-1">
                 {describeRate(form.pointsPerRupeeSpent)}
               </p>
             </Field>
             <Field label="Points expiry (days, blank = never)">
               <input type="number" min={0} value={form.pointsExpiryDays ?? ''}
-                     onChange={(e) => update('pointsExpiryDays', e.target.value === '' ? null : Number(e.target.value))}
-                     className="w-full rounded-lg border-slate-300 text-sm" />
+                onChange={(e) => update('pointsExpiryDays', e.target.value === '' ? null : Number(e.target.value))}
+                className="w-full rounded-lg border-slate-300 text-sm" />
             </Field>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4">
             <Field label="Points per redemption chunk">
               <input type="number" min={1} value={form.pointsPerRedemption}
-                     onChange={(e) => update('pointsPerRedemption', Number(e.target.value))}
-                     className="w-full rounded-lg border-slate-300 text-sm" />
+                onChange={(e) => update('pointsPerRedemption', Number(e.target.value))}
+                className="w-full rounded-lg border-slate-300 text-sm" />
             </Field>
             <Field label="Chunk value (₹)">
               <input type="number" min={1} value={form.redemptionValueInPaise / 100}
-                     onChange={(e) => update('redemptionValueInPaise', Math.round(Number(e.target.value) * 100))}
-                     className="w-full rounded-lg border-slate-300 text-sm" />
+                onChange={(e) => update('redemptionValueInPaise', Math.round(Number(e.target.value) * 100))}
+                className="w-full rounded-lg border-slate-300 text-sm" />
             </Field>
             <Field label="Minimum to redeem">
               <input type="number" min={form.pointsPerRedemption} step={form.pointsPerRedemption}
-                     value={form.minPointsForRedemption}
-                     onChange={(e) => update('minPointsForRedemption', Number(e.target.value))}
-                     className="w-full rounded-lg border-slate-300 text-sm" />
+                value={form.minPointsForRedemption}
+                onChange={(e) => update('minPointsForRedemption', Number(e.target.value))}
+                className="w-full rounded-lg border-slate-300 text-sm" />
             </Field>
           </div>
 
           <Field label="Max redemption share of a single order (%)">
             <input type="number" min={0} max={100} step={1} value={form.maxRedemptionPctOfPurchase}
-                   onChange={(e) => update('maxRedemptionPctOfPurchase', Number(e.target.value))}
-                   className="w-40 rounded-lg border-slate-300 text-sm" />
+              onChange={(e) => update('maxRedemptionPctOfPurchase', Number(e.target.value))}
+              className="w-40 rounded-lg border-slate-300 text-sm" />
           </Field>
 
           <div className="flex items-center gap-3">
