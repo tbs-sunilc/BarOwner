@@ -159,7 +159,7 @@ export default function BarOwnerLoginPage() {
 
     setBusy(true);
     try {
-      const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp });
+      const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp, test: true });
       persistOwnerSession(response);
 
       // Check KYC status from API response

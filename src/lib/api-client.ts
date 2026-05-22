@@ -46,6 +46,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       !path.includes("/staff/auth/login") &&
       !path.includes("/auth/register") &&
       !path.includes("/auth/verify") &&
+      !path.includes("/auth/refresh") &&
+      headers.get("Authorization")?.startsWith("Bearer ") &&
+      window.sessionStorage.getItem("sipsave-barowner-refresh-token")
+    ) {
+      const expiresAt = window.sessionStorage.getItem(
+        "sipsave-barowner-access-token-expires-at",
+      );
+      const isExpired = expiresAt ? new Date() >= new Date(expiresAt) : false;
+      if (isExpired) {
+        window.dispatchEvent(
+          new CustomEvent("sipsave-owner-session-expired", {
+            detail: { path, status: res.status },
+          }),
+        );
+      }
+    }
+
+    if (
+      res.status === 401 &&
+      typeof window !== "undefined" &&
+      !path.includes("/staff/auth/login") &&
+      !path.includes("/auth/register") &&
+      !path.includes("/auth/verify") &&
       headers.get("Authorization")?.startsWith("Bearer ") &&
       window.sessionStorage.getItem("sipsave-staff-access-token")
     ) {
@@ -105,6 +128,7 @@ export const requestOwnerOtp = (payload: RegisterOtpPayload) =>
 export type VerifyOtpPayload = {
   mobileNumber: string;
   otp: string;
+  test: boolean;
 };
 
 export type AuthTokens = {
@@ -140,6 +164,7 @@ export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
     body: JSON.stringify(payload),
   });
 
+<<<<<<< HEAD
 export type CustomerLookupWalletDto = {
   id: number;
   name: string;
@@ -163,6 +188,34 @@ export const fetchCustomerLookup = (mobileNumber: string, barId: number) =>
     `/api/v1/sessions/customer-lookup?mobileNumber=${encodeURIComponent(mobileNumber)}&barId=${encodeURIComponent(barId)}`,
   );
 
+=======
+export const refreshAuthToken = async (
+  refreshToken: string,
+): Promise<{ tokens: AuthTokens; user?: AuthUser }> => {
+  const res = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken, test: true }),
+  });
+
+  const text = await res.text();
+  const body = text ? safeParse(text) : null;
+  if (!res.ok) {
+    const message =
+      body &&
+      typeof body === "object" &&
+      "title" in (body as Record<string, unknown>)
+        ? String((body as Record<string, unknown>).title)
+        : res.statusText;
+    throw new ApiError(res.status, message, body);
+  }
+
+  return body as { tokens: AuthTokens; user?: AuthUser };
+};
+
+>>>>>>> 6bb498943d0ad193b216ce776821e5e454b7adc8
 // ---------------------------------------------------------------------------
 //  Staff auth endpoints
 // ---------------------------------------------------------------------------
@@ -914,12 +967,16 @@ export type BarWalletPurchaseDetailDto = {
 export const listWalletPurchases = (barId: number, skip = 0, take = 50) => {
   assertValidBarId(barId);
   const q = new URLSearchParams({ skip: String(skip), take: String(take) });
-  return request<BarWalletPurchaseListItemDto[]>(`/api/v1/bars/${barId}/wallet-purchases?${q.toString()}`);
+  return request<BarWalletPurchaseListItemDto[]>(
+    `/api/v1/bars/${barId}/wallet-purchases?${q.toString()}`,
+  );
 };
 
 export const getWalletPurchaseDetail = (barId: number, paymentId: number) => {
   assertValidBarId(barId);
-  return request<BarWalletPurchaseDetailDto>(`/api/v1/bars/${barId}/wallet-purchases/${paymentId}`);
+  return request<BarWalletPurchaseDetailDto>(
+    `/api/v1/bars/${barId}/wallet-purchases/${paymentId}`,
+  );
 };
 
 /**
