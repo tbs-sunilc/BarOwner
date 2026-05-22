@@ -87,6 +87,28 @@ a, button, input, select, textarea {
     transform var(--duration-fast) var(--ease-out);
 }
 
+/* Ensure text-like input fields, selects, and textareas have a visible border by default */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+select,
+textarea {
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]):hover,
+select:hover,
+textarea:hover {
+  border-color: var(--color-accent-hi);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px rgb(184 134 11 / 0.12);
+}
+
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
