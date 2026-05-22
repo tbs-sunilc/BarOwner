@@ -161,13 +161,7 @@ export default function ServePourPage() {
       const updated = await servePourRequest(row.id, Math.floor(servedMl), null);
       (window as any).toast?.('✅ Serve confirmed. Wallet updated in real time.', 's');
 
-      const query = new URLSearchParams({
-        customer: updated.userDisplayName ?? customerName,
-        amount: String(updated.servedMl ?? servedMl),
-        bottle: [updated.bottleBrandName, updated.bottleProductName].filter(Boolean).join(' ') || bottleName,
-        balance: updated.remainingMlAfterServe != null ? String(updated.remainingMlAfterServe) : String(newBalanceMl),
-      });
-      router.push(`/serve/success?${query.toString()}`);
+      router.push(`/serve/success?id=${updated.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 422) (window as any).toast?.('Insufficient wallet balance for this pour.', 'e');
