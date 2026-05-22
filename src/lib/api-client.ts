@@ -50,11 +50,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       headers.get("Authorization")?.startsWith("Bearer ") &&
       window.sessionStorage.getItem("sipsave-barowner-refresh-token")
     ) {
-      window.dispatchEvent(
-        new CustomEvent("sipsave-owner-session-expired", {
-          detail: { path, status: res.status },
-        }),
+      const expiresAt = window.sessionStorage.getItem(
+        "sipsave-barowner-access-token-expires-at",
       );
+      const isExpired = expiresAt ? new Date() >= new Date(expiresAt) : false;
+      if (isExpired) {
+        window.dispatchEvent(
+          new CustomEvent("sipsave-owner-session-expired", {
+            detail: { path, status: res.status },
+          }),
+        );
+      }
     }
 
     if (

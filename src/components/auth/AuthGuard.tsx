@@ -16,7 +16,7 @@ type AuthGuardProps = {
   fallbackPath?: string;
 };
 
-const SESSION_CHECK_INTERVAL_MS = 15_000;
+const SESSION_CHECK_INTERVAL_MS = 5_000;
 
 function hasValidSession(allowedTokens: string[]): boolean {
   if (typeof window === "undefined") return false;
@@ -29,6 +29,19 @@ function hasValidSession(allowedTokens: string[]): boolean {
   return allowedTokens.some((tokenKey) =>
     Boolean(window.sessionStorage.getItem(tokenKey)),
   );
+}
+
+function getOwnerTokenExpiry(): Date | null {
+  if (typeof window === "undefined") return null;
+  const tokenTime = window.sessionStorage.getItem(
+    "sipsave-barowner-access-token-expires-at",
+  );
+  return tokenTime ? new Date(tokenTime) : null;
+}
+
+function isOwnerTokenExpired(): boolean {
+  const expiresAt = getOwnerTokenExpiry();
+  return expiresAt !== null ? Date.now() >= expiresAt.getTime() : false;
 }
 
 export default function AuthGuard({
@@ -46,24 +59,52 @@ export default function AuthGuard({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    let expiryTimer: number | undefined;
+    let interval: number | undefined;
+
+    const scheduleExpiryCheck = () => {
+      window.clearTimeout(expiryTimer);
+      const expiresAt = getOwnerTokenExpiry();
+      if (!expiresAt) return;
+
+      const delayMs = expiresAt.getTime() - Date.now();
+      if (delayMs <= 0) {
+        showRefreshForExpiredToken();
+        return;
+      }
+
+      expiryTimer = window.setTimeout(() => {
+        showRefreshForExpiredToken();
+      }, delayMs);
+    };
+
+    const showRefreshForExpiredToken = () => {
+      if (!isStaffGuard) {
+        setShowRefreshPopup(true);
+        setChecked(true);
+      }
+    };
+
     const enforce = () => {
-      if (!hasValidSession(allowedTokens)) {
-        if (isStaffGuard) {
+      if (isStaffGuard) {
+        if (!hasValidSession(allowedTokens)) {
           clearStaffSession();
           redirectToStaffLogin("expired");
           return;
         }
 
-        // If we have a refresh token we should offer the user a chance
-        // to refresh the session via the popup instead of immediately
-        // redirecting them to the login page.
+        setChecked(true);
+        return;
+      }
+
+      if (isOwnerTokenExpired()) {
         const hasRefreshToken = Boolean(
           window.sessionStorage.getItem("sipsave-barowner-refresh-token"),
         );
 
         if (hasRefreshToken) {
           setShowRefreshPopup(true);
-          setChecked(true); // render children under the popup
+          setChecked(true);
           return;
         }
 
@@ -71,12 +112,19 @@ export default function AuthGuard({
         return;
       }
 
+      if (!hasValidSession(allowedTokens)) {
+        router.replace(fallbackPath);
+        return;
+      }
+
       setChecked(true);
+      scheduleExpiryCheck();
     };
 
     const handleExpiredOwnerSession = () => {
-      if (!isStaffGuard) {
+      if (!isStaffGuard && isOwnerTokenExpired()) {
         setShowRefreshPopup(true);
+        setChecked(true);
       }
     };
 
@@ -84,10 +132,11 @@ export default function AuthGuard({
     window.addEventListener("sipsave-owner-session-expired", eventHandler);
     enforce();
 
-    const interval = window.setInterval(enforce, SESSION_CHECK_INTERVAL_MS);
+    interval = window.setInterval(enforce, SESSION_CHECK_INTERVAL_MS);
     return () => {
       window.removeEventListener("sipsave-owner-session-expired", eventHandler);
       window.clearInterval(interval);
+      window.clearTimeout(expiryTimer);
     };
   }, [allowedTokens, fallbackPath, isStaffGuard, router]);
 
