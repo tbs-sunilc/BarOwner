@@ -28,8 +28,10 @@ export default function CustomerLookupPage() {
   const normalizeMobileForLookup = (value: string) => {
     const digits = value.replace(/\D/g, '');
     if (!digits) return '';
-    const lastTen = digits.slice(-10);
-    return `+91${lastTen}`;
+    if (digits.length === 10) return digits;
+    if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+    if (digits.length > 10) return digits.slice(-10);
+    return digits;
   };
 
   type CustomerProfile = NonNullable<TabletState['customerProfile']>;
@@ -326,7 +328,7 @@ export default function CustomerLookupPage() {
                     A
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black tracking-tighter">{state.customerProfile.name}</h2>
+                    <h2 className="text-2xl text-white tracking-tighter">{state.customerProfile.name}</h2>
                     <p className="text-indigo-300 text-sm font-bold mt-0.5">{state.customerProfile.mobile}</p>
                     
                     <div className="flex gap-2 mt-4">

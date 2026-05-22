@@ -7,8 +7,10 @@ function normalizeMobileForBackend(value: string | null): string | null {
   if (!value) return null;
   const digits = value.replace(/\D/g, '');
   if (!digits) return null;
-  const lastTen = digits.slice(-10);
-  return `+91${lastTen}`;
+  if (digits.length === 10) return digits;
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  if (digits.length > 10) return digits.slice(-10);
+  return digits;
 }
 
 export async function GET(request: Request) {
