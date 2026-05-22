@@ -140,6 +140,29 @@ export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
     body: JSON.stringify(payload),
   });
 
+export type CustomerLookupWalletDto = {
+  id: number;
+  name: string;
+  balance: number;
+  total: number;
+  lastServed: string;
+  warning?: string | null;
+};
+
+export type CustomerLookupResponse = {
+  name: string;
+  mobile: string;
+  kycStatus: string;
+  currentTable: string | null;
+  activeSessionId?: number | null;
+  wallets: CustomerLookupWalletDto[];
+};
+
+export const fetchCustomerLookup = (mobileNumber: string, barId: number) =>
+  request<CustomerLookupResponse>(
+    `/api/v1/sessions/customer-lookup?mobileNumber=${encodeURIComponent(mobileNumber)}&barId=${encodeURIComponent(barId)}`,
+  );
+
 // ---------------------------------------------------------------------------
 //  Staff auth endpoints
 // ---------------------------------------------------------------------------
