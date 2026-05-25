@@ -62,7 +62,7 @@ export function CloseBarModal({ busy = false, onCancel, onConfirm }: Props) {
           </button>
           <button
             onClick={() => onConfirm(reason.trim(), reopenOn || null)}
-            disabled={busy}
+            disabled={busy || !reason.trim()}
             className="px-4 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 rounded-lg"
           >
             {busy ? 'Closing…' : 'Close temporarily'}
