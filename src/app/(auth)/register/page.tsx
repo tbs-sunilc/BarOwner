@@ -150,7 +150,7 @@ export default function RegisterPage() {
 
     setBusy(true);
     try {
-      const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp , test:true });
+      const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp , test:false });
       persistOwnerSession(response);
       saveRegistrationStep1(form);
       router.push('/register/documents');

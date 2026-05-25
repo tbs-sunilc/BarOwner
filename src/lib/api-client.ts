@@ -164,7 +164,6 @@ export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
     body: JSON.stringify(payload),
   });
 
-<<<<<<< HEAD
 export type CustomerLookupWalletDto = {
   id: number;
   name: string;
@@ -188,7 +187,6 @@ export const fetchCustomerLookup = (mobileNumber: string, barId: number) =>
     `/api/v1/sessions/customer-lookup?mobileNumber=${encodeURIComponent(mobileNumber)}&barId=${encodeURIComponent(barId)}`,
   );
 
-=======
 export const refreshAuthToken = async (
   refreshToken: string,
 ): Promise<{ tokens: AuthTokens; user?: AuthUser }> => {
@@ -197,7 +195,7 @@ export const refreshAuthToken = async (
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ refreshToken, test: true }),
+    body: JSON.stringify({ refreshToken, test: false }),
   });
 
   const text = await res.text();
@@ -215,7 +213,6 @@ export const refreshAuthToken = async (
   return body as { tokens: AuthTokens; user?: AuthUser };
 };
 
->>>>>>> 6bb498943d0ad193b216ce776821e5e454b7adc8
 // ---------------------------------------------------------------------------
 //  Staff auth endpoints
 // ---------------------------------------------------------------------------
