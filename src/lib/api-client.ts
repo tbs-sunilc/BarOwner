@@ -301,6 +301,67 @@ export type BarDetails = {
 
 export const getBarDetails = () => request<BarDetails>("/api/v1/bars/details");
 
+export type BarOwnerSettings = {
+  barId: number;
+  businessName: string;
+  description: string | null;
+  contactMobile: string;
+  contactEmail: string | null;
+  city: string;
+  stateCode: string;
+  isVerified: boolean;
+  isActive: boolean;
+  isTemporarilyClosed: boolean;
+  closureReason: string | null;
+  plannedReopenOn: string | null;
+  verificationQueueMessage: string;
+};
+
+export const getBarOwnerSettings = (barId: number) => {
+  assertValidBarId(barId);
+  return request<BarOwnerSettings>(`/api/v1/bars/${barId}/owner-settings`);
+};
+
+export type UpdateBarProfilePayload = {
+  businessName: string;
+  description?: string | null;
+  contactMobile?: string | null;
+  contactEmail?: string | null;
+};
+
+export const updateBarProfile = (barId: number, payload: UpdateBarProfilePayload) => {
+  assertValidBarId(barId);
+  return request<void>(`/api/v1/bars/${barId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const closeBarTemporarily = (
+  barId: number,
+  payload: { reason: string; plannedReopenOn?: string | null },
+) => {
+  assertValidBarId(barId);
+  return request<void>(`/api/v1/bars/${barId}/temporary-close`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const reopenBar = (barId: number) => {
+  assertValidBarId(barId);
+  return request<void>(`/api/v1/bars/${barId}/reopen`, {
+    method: "POST",
+  });
+};
+
+export const deleteBarAccount = (barId: number) => {
+  assertValidBarId(barId);
+  return request<void>(`/api/v1/bars/${barId}`, {
+    method: "DELETE",
+  });
+};
+
 export type BarTableDto = {
   id: number;
   barId: number;
