@@ -93,6 +93,7 @@ select,
 textarea {
   border: 1px solid var(--color-border-strong);
   background-color: var(--color-surface);
+  padding: 0.625rem 0.75rem;
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]):hover,
