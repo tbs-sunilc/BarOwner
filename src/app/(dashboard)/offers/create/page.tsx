@@ -13,6 +13,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { FormField, FormRow, FormSection, INPUT_CLASS } from '@/components/forms/FormField';
 import { getActiveBarId } from '@/lib/active-bar';
 import {
   ApiError,
@@ -132,112 +133,113 @@ export default function CreateOfferPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Offer type selector */}
-        <Section title="Offer type">
-          <select
-            value={offerType}
-            onChange={(e) => setOfferType(e.target.value as OfferType)}
-            className="w-full rounded-lg border-slate-300 text-sm"
-          >
-            {OFFER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-          <p className="text-xs text-slate-500 mt-2">
+        <FormSection title="Offer type">
+          <FormField label="Offer type">
+            <select
+              value={offerType}
+              onChange={(e) => setOfferType(e.target.value as OfferType)}
+              className={INPUT_CLASS}
+            >
+              {OFFER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </FormField>
+          <p className="text-xs text-slate-500 -mt-2">
             {OFFER_TYPES.find((t) => t.value === offerType)?.hint}
           </p>
-        </Section>
+        </FormSection>
 
-        <Section title="Details">
-          <Field label="Title">
+        <FormSection title="Details">
+          <FormField label="Title">
             <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120}
-                   className="w-full rounded-lg border-slate-300 text-sm" />
-          </Field>
-          <Field label="Description (optional)">
+                   className={INPUT_CLASS} />
+          </FormField>
+          <FormField label="Description (optional)">
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={2}
-                      className="w-full rounded-lg border-slate-300 text-sm" />
-          </Field>
-        </Section>
+                      className={INPUT_CLASS} />
+          </FormField>
+        </FormSection>
 
-        {/* Discount shape */}
-        <Section title="Discount">
-          <Field label="Type">
+        <FormSection title="Discount">
+          <FormField label="Discount type">
             <select
               value={discountType}
               onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-              className="w-full rounded-lg border-slate-300 text-sm"
+              className={INPUT_CLASS}
             >
               <option value="Percent">Percent off</option>
               <option value="FlatAmount">Flat rupee amount off</option>
               <option value="BuyXGetY">Buy X, get Y</option>
             </select>
-          </Field>
+          </FormField>
 
           {discountType === 'Percent' && (
-            <Field label={`Percent off${offerType === 'HappyHour' ? ' (max 50% for Happy Hour)' : ''}`}>
+            <FormField
+              label={offerType === 'HappyHour' ? 'Percent off (max 50% for Happy Hour)' : 'Percent off'}
+            >
               <input type="number" min={1} max={100} value={discountPercent}
                      onChange={(e) => setDiscountPercent(Number(e.target.value))}
-                     className={`w-40 rounded-lg text-sm ${happyHourPercentCap ? 'border-rose-400' : 'border-slate-300'}`} />
-            </Field>
+                     className={`${INPUT_CLASS} max-w-[10rem] ${happyHourPercentCap ? 'border-rose-400' : ''}`} />
+            </FormField>
           )}
           {discountType === 'FlatAmount' && (
-            <Field label="Amount off (₹)">
+            <FormField label="Amount off (₹)">
               <input type="number" min={1} step="0.01" value={discountAmount}
                      onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                     className="w-40 rounded-lg border-slate-300 text-sm" />
-            </Field>
+                     className={`${INPUT_CLASS} max-w-[10rem]`} />
+            </FormField>
           )}
           {discountType === 'BuyXGetY' && (
-            <div className="flex gap-4">
-              <Field label="Buy (count)">
+            <FormRow>
+              <FormField label="Buy (count)">
                 <input type="number" min={1} value={buyQty} onChange={(e) => setBuyQty(Number(e.target.value))}
-                       className="w-28 rounded-lg border-slate-300 text-sm" />
-              </Field>
-              <Field label="Get (count)">
+                       className={INPUT_CLASS} />
+              </FormField>
+              <FormField label="Get (count)">
                 <input type="number" min={1} value={getQty} onChange={(e) => setGetQty(Number(e.target.value))}
-                       className="w-28 rounded-lg border-slate-300 text-sm" />
-              </Field>
-            </div>
+                       className={INPUT_CLASS} />
+              </FormField>
+            </FormRow>
           )}
 
-          <div className="flex gap-4">
-            <Field label="Max discount cap (₹, optional)">
+          <FormRow>
+            <FormField label="Max discount cap (₹, optional)">
               <input type="number" min={0} step="0.01" value={maxDiscountRupees}
                      onChange={(e) => setMaxDiscountRupees(e.target.value === '' ? '' : Number(e.target.value))}
-                     className="w-40 rounded-lg border-slate-300 text-sm" />
-            </Field>
-            <Field label="Minimum spend (₹, optional)">
+                     className={INPUT_CLASS} />
+            </FormField>
+            <FormField label="Minimum spend (₹, optional)">
               <input type="number" min={0} step="0.01" value={minSpendRupees}
                      onChange={(e) => setMinSpendRupees(e.target.value === '' ? '' : Number(e.target.value))}
-                     className="w-40 rounded-lg border-slate-300 text-sm" />
-            </Field>
-          </div>
-        </Section>
+                     className={INPUT_CLASS} />
+            </FormField>
+          </FormRow>
+        </FormSection>
 
-        {/* Date window */}
-        <Section title="Runs">
-          <div className="flex gap-4">
-            <Field label="Starts on">
+        <FormSection title="Runs">
+          <FormRow>
+            <FormField label="Starts on">
               <input type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)}
-                     className="rounded-lg border-slate-300 text-sm" />
-            </Field>
-            <Field label="Ends on">
+                     className={INPUT_CLASS} />
+            </FormField>
+            <FormField label="Ends on">
               <input type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)}
-                     className="rounded-lg border-slate-300 text-sm" />
-            </Field>
-          </div>
+                     className={INPUT_CLASS} />
+            </FormField>
+          </FormRow>
 
           {showTimeWindow && (
-            <div className="flex gap-4">
-              <Field label="Starts at">
+            <FormRow>
+              <FormField label="Starts at">
                 <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                       className="rounded-lg border-slate-300 text-sm" />
-              </Field>
-              <Field label="Ends at">
+                       className={INPUT_CLASS} />
+              </FormField>
+              <FormField label="Ends at">
                 <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                       className="rounded-lg border-slate-300 text-sm" />
-              </Field>
-            </div>
+                       className={INPUT_CLASS} />
+              </FormField>
+            </FormRow>
           )}
-        </Section>
+        </FormSection>
 
         {error && (
           <p className="text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-4 py-3 text-sm">
@@ -260,20 +262,3 @@ export default function CreateOfferPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-      <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block text-xs font-medium text-slate-600 space-y-1">
-      <span>{label}</span>
-      {children}
-    </label>
-  );
-}

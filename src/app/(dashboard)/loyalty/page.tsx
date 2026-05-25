@@ -11,6 +11,12 @@
 import { useEffect, useState } from 'react';
 import { getActiveBarId } from '@/lib/active-bar';
 import {
+  CheckboxField,
+  FormField,
+  FormRow,
+  INPUT_CLASS,
+} from '@/components/forms/FormField';
+import {
   ApiError,
   getLoyaltyProgramme,
   getLoyaltyStats,
@@ -111,67 +117,66 @@ export default function LoyaltyPage() {
 
       {!loading && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
-          <div className="grid md:grid-cols-2 gap-4">
-            <Field label="Programme name">
+          <FormRow>
+            <FormField label="Programme name">
               <input value={form.name} maxLength={120}
                 onChange={(e) => update('name', e.target.value)}
-                className="w-full rounded-lg border-slate-350 text-sm" />
-            </Field>
-            <Field label="Active">
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.isActive}
-                  onChange={(e) => update('isActive', e.target.checked)} />
-                Accepting new earns + redemptions
-              </label>
-            </Field>
-          </div>
+                className={INPUT_CLASS} />
+            </FormField>
+            <CheckboxField
+              label="Status"
+              checked={form.isActive}
+              onChange={(v) => update('isActive', v)}
+              description="Accepting new earns + redemptions"
+            />
+          </FormRow>
 
-          <Field label="Description (optional)">
+          <FormField label="Description (optional)">
             <textarea rows={2} value={form.description ?? ''}
               onChange={(e) => update('description', e.target.value || null)}
-              className="w-full rounded-lg border-slate-300 text-sm" />
-          </Field>
+              className={INPUT_CLASS} />
+          </FormField>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <Field label="Points earned per ₹1 spent">
+          <FormRow>
+            <FormField
+              label="Points earned per ₹1 spent"
+              hint={<p className="text-xs text-slate-500">{describeRate(form.pointsPerRupeeSpent)}</p>}
+            >
               <input type="number" min={0} step="0.001" value={form.pointsPerRupeeSpent}
                 onChange={(e) => update('pointsPerRupeeSpent', Number(e.target.value))}
-                className="w-full rounded-lg border-slate-300 text-sm" />
-              <p className="text-xs text-slate-500 mt-1">
-                {describeRate(form.pointsPerRupeeSpent)}
-              </p>
-            </Field>
-            <Field label="Points expiry (days, blank = never)">
+                className={INPUT_CLASS} />
+            </FormField>
+            <FormField label="Points expiry (days, blank = never)">
               <input type="number" min={0} value={form.pointsExpiryDays ?? ''}
                 onChange={(e) => update('pointsExpiryDays', e.target.value === '' ? null : Number(e.target.value))}
-                className="w-full rounded-lg border-slate-300 text-sm" />
-            </Field>
-          </div>
+                className={INPUT_CLASS} />
+            </FormField>
+          </FormRow>
 
-          <div className="grid md:grid-cols-3 gap-4">
-            <Field label="Points per redemption chunk">
+          <FormRow cols={3}>
+            <FormField label="Points per redemption chunk">
               <input type="number" min={1} value={form.pointsPerRedemption}
                 onChange={(e) => update('pointsPerRedemption', Number(e.target.value))}
-                className="w-full rounded-lg border-slate-300 text-sm" />
-            </Field>
-            <Field label="Chunk value (₹)">
+                className={INPUT_CLASS} />
+            </FormField>
+            <FormField label="Chunk value (₹)">
               <input type="number" min={1} value={form.redemptionValueInPaise / 100}
                 onChange={(e) => update('redemptionValueInPaise', Math.round(Number(e.target.value) * 100))}
-                className="w-full rounded-lg border-slate-300 text-sm" />
-            </Field>
-            <Field label="Minimum to redeem">
+                className={INPUT_CLASS} />
+            </FormField>
+            <FormField label="Minimum to redeem">
               <input type="number" min={form.pointsPerRedemption} step={form.pointsPerRedemption}
                 value={form.minPointsForRedemption}
                 onChange={(e) => update('minPointsForRedemption', Number(e.target.value))}
-                className="w-full rounded-lg border-slate-300 text-sm" />
-            </Field>
-          </div>
+                className={INPUT_CLASS} />
+            </FormField>
+          </FormRow>
 
-          <Field label="Max redemption share of a single order (%)">
+          <FormField label="Max redemption share of a single order (%)">
             <input type="number" min={0} max={100} step={1} value={form.maxRedemptionPctOfPurchase}
               onChange={(e) => update('maxRedemptionPctOfPurchase', Number(e.target.value))}
-              className="w-40 rounded-lg border-slate-300 text-sm" />
-          </Field>
+              className={`${INPUT_CLASS} max-w-[10rem]`} />
+          </FormField>
 
           <div className="flex items-center gap-3">
             <button
@@ -195,15 +200,6 @@ function StatTile({ label, value }: { label: string; value: number | string }) {
       <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
       <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block text-xs font-medium text-slate-600 space-y-1">
-      <span>{label}</span>
-      {children}
-    </label>
   );
 }
 
