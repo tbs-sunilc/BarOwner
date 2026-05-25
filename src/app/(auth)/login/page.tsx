@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { ErrorBanner } from '@/components/ui';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { ErrorBanner } from "@/components/ui";
 import {
   ApiError,
   getBarDetails,
@@ -15,30 +15,39 @@ import {
   type RegisterOtpResponse,
   type VerifyOtpResponse,
   type StaffLoginResponse,
-} from '@/lib/api-client';
-import { clearActiveBarId, setActiveBarDetails, setActiveBarId } from '@/lib/active-bar';
-import { saveKycStatus, parseKycStatusFromApi } from '@/lib/kyc-status';
+} from "@/lib/api-client";
+import {
+  clearActiveBarId,
+  setActiveBarDetails,
+  setActiveBarId,
+} from "@/lib/active-bar";
+import { saveKycStatus, parseKycStatusFromApi } from "@/lib/kyc-status";
 
 const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
-type Step = 'details' | 'otp';
+type Step = "details" | "otp";
 
 export default function BarOwnerLoginPage() {
   const router = useRouter();
   const [isFlipped, setIsFlipped] = useState(false);
-  const [staffSessionNotice, setStaffSessionNotice] = useState<string | null>(null);
-  const [step, setStep] = useState<Step>('details');
-  const [fullName, setFullName] = useState('');
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [otp, setOtp] = useState('');
+  const [staffSessionNotice, setStaffSessionNotice] = useState<string | null>(
+    null,
+  );
+  const [step, setStep] = useState<Step>("details");
+  const [fullName, setFullName] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [otp, setOtp] = useState("");
   const [otpMeta, setOtpMeta] = useState<RegisterOtpResponse | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const normalizedMobile = mobileNumber.replace(/\D/g, '').slice(0, 10);
-  const otpLength = otpMeta && otpMeta.otpLength >= 4 && otpMeta.otpLength <= 8 ? otpMeta.otpLength : 6;
+  const normalizedMobile = mobileNumber.replace(/\D/g, "").slice(0, 10);
+  const otpLength =
+    otpMeta && otpMeta.otpLength >= 4 && otpMeta.otpLength <= 8
+      ? otpMeta.otpLength
+      : 6;
 
   const detailsValid = useMemo(
     () => fullName.trim().length >= 2 && MOBILE_REGEX.test(normalizedMobile),
@@ -46,14 +55,16 @@ export default function BarOwnerLoginPage() {
   );
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get('staff') === '1') setIsFlipped(true);
-    const reason = params.get('reason');
-    if (reason === 'expired') {
-      setStaffSessionNotice('Your shift session has expired. Please log in again.');
-    } else if (reason === 'unauthorized') {
-      setStaffSessionNotice('You have been signed out. Please log in again.');
+    if (params.get("staff") === "1") setIsFlipped(true);
+    const reason = params.get("reason");
+    if (reason === "expired") {
+      setStaffSessionNotice(
+        "Your shift session has expired. Please log in again.",
+      );
+    } else if (reason === "unauthorized") {
+      setStaffSessionNotice("You have been signed out. Please log in again.");
     }
   }, []);
 
@@ -71,7 +82,9 @@ export default function BarOwnerLoginPage() {
     setNotice(null);
 
     if (!detailsValid) {
-      setError('Enter your full name and a valid 10-digit registered mobile number.');
+      setError(
+        "Enter your full name and a valid 10-digit registered mobile number.",
+      );
       return;
     }
 
@@ -83,17 +96,24 @@ export default function BarOwnerLoginPage() {
       });
 
       if (!response.isExistingAccount) {
-        setNotice('This mobile number is not registered as a bar owner. Please register your bar first.');
-        setStep('details');
+        setNotice(
+          "This mobile number is not registered as a bar owner. Please register your bar first.",
+        );
+        setStep("details");
         return;
       }
 
       setOtpMeta(response);
-      setOtp('');
+      setOtp("");
       setCooldown(response.resendCooldownSeconds || 30);
-      setStep('otp');
+      setStep("otp");
     } catch (err) {
-      setError(readApiMessage(err, 'Could not send OTP. Please check the mobile number and try again.'));
+      setError(
+        readApiMessage(
+          err,
+          "Could not send OTP. Please check the mobile number and try again.",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -153,17 +173,26 @@ export default function BarOwnerLoginPage() {
     setNotice(null);
 
     if (otp.length !== otpLength) {
-      setError(`Enter the ${otpLength}-digit OTP sent to your registered mobile number.`);
+      setError(
+        `Enter the ${otpLength}-digit OTP sent to your registered mobile number.`,
+      );
       return;
     }
 
     setBusy(true);
     try {
-      const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp, test: true });
+      const response = await verifyOwnerOtp({
+        mobileNumber: normalizedMobile,
+        otp,
+        test: false,
+      });
       persistOwnerSession(response);
 
       // Check KYC status from API response
-      const kycData = parseKycStatusFromApi(response.user.kycStatus, response.user.kycRejectionReason);
+      const kycData = parseKycStatusFromApi(
+        response.user.kycStatus,
+        response.user.kycRejectionReason,
+      );
 
       if (kycData) {
         saveKycStatus(kycData);
@@ -176,20 +205,20 @@ export default function BarOwnerLoginPage() {
           // If bar exists, check subscription
           const dashboard = await getDashboard(bar.barId);
           if (dashboard.subscription) {
-            router.replace('/dashboard');
+            router.replace("/dashboard");
             return;
           }
         } catch (barErr) {
           // No bar found (204 No Content) - check if user KYC is approved
-          if (kycData.status === 'user_approved') {
+          if (kycData.status === "user_approved") {
             // User verified but no bar registered
-            router.replace('/register/kyc-status');
+            router.replace("/register/kyc-status");
             return;
           }
         }
 
         // Redirect to KYC status page
-        router.replace('/register/kyc-status');
+        router.replace("/register/kyc-status");
         return;
       }
 
@@ -198,7 +227,12 @@ export default function BarOwnerLoginPage() {
       try {
         bar = await getBarDetails();
       } catch (err) {
-        setError(readApiMessage(err, 'OTP verified, but we could not load your bar details. Please try again.'));
+        setError(
+          readApiMessage(
+            err,
+            "OTP verified, but we could not load your bar details. Please try again.",
+          ),
+        );
         return;
       }
 
@@ -209,24 +243,26 @@ export default function BarOwnerLoginPage() {
       }
 
       persistBarDetails(bar);
-      router.replace('/inventory');
+      router.replace("/inventory");
     } catch (err) {
-      setError(readApiMessage(err, 'Invalid or expired OTP. Please try again.'));
+      setError(
+        readApiMessage(err, "Invalid or expired OTP. Please try again."),
+      );
     } finally {
       setBusy(false);
     }
   }
 
   function backToDetails() {
-    setStep('details');
-    setOtp('');
+    setStep("details");
+    setOtp("");
     setError(null);
     setNotice(null);
   }
 
   return (
     <div className="flip-container w-full max-w-md">
-      <div className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
+      <div className={`flip-card ${isFlipped ? "flipped" : ""}`}>
         {/* FRONT: Bar Owner Login */}
         <div className="flip-card-front">
           <div className="w-full">
@@ -237,7 +273,9 @@ export default function BarOwnerLoginPage() {
                 </div>
                 <div>
                   <p className="font-display text-lg leading-tight">SipSave</p>
-                  <p className="text-[0.65rem] uppercase tracking-[0.25em] text-accent-lo">Noir Console</p>
+                  <p className="text-[0.65rem] uppercase tracking-[0.25em] text-accent-lo">
+                    Noir Console
+                  </p>
                 </div>
               </div>
             </div>
@@ -246,17 +284,26 @@ export default function BarOwnerLoginPage() {
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
                 Secure OTP sign-in
               </p>
-              <h1 className="mt-2 font-display text-4xl leading-tight text-ink">Owner Login</h1>
+              <h1 className="mt-2 font-display text-4xl leading-tight text-ink">
+                Owner Login
+              </h1>
               <span className="gold-rule mb-3 mt-3" aria-hidden="true" />
               <p className="text-sm text-muted">
-                Verify your registered owner mobile number to access the dashboard.
+                Verify your registered owner mobile number to access the
+                dashboard.
               </p>
             </header>
 
-            {step === 'details' ? (
-              <form onSubmit={handleRequestOtp} className="space-y-4" noValidate>
+            {step === "details" ? (
+              <form
+                onSubmit={handleRequestOtp}
+                className="space-y-4"
+                noValidate
+              >
                 <div>
-                  <label htmlFor="fullName" className="field-label">Full name</label>
+                  <label htmlFor="fullName" className="field-label">
+                    Full name
+                  </label>
                   <input
                     id="fullName"
                     type="text"
@@ -271,14 +318,20 @@ export default function BarOwnerLoginPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="mobileNumber" className="field-label">Registered mobile number</label>
+                  <label htmlFor="mobileNumber" className="field-label">
+                    Registered mobile number
+                  </label>
                   <input
                     id="mobileNumber"
                     type="tel"
                     inputMode="numeric"
                     autoComplete="tel"
                     value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    onChange={(e) =>
+                      setMobileNumber(
+                        e.target.value.replace(/\D/g, "").slice(0, 10),
+                      )
+                    }
                     required
                     className="input"
                     placeholder="9876543210"
@@ -286,10 +339,21 @@ export default function BarOwnerLoginPage() {
                 </div>
 
                 {error && <ErrorBanner>{error}</ErrorBanner>}
-                {notice && <NoticeCard title="Mobile number not registered" message={notice} actionHref="/register" actionText="Register your bar" />}
+                {notice && (
+                  <NoticeCard
+                    title="Mobile number not registered"
+                    message={notice}
+                    actionHref="/register"
+                    actionText="Register your bar"
+                  />
+                )}
 
-                <button type="submit" disabled={busy || !detailsValid} className="btn btn-primary w-full">
-                  {busy ? 'Sending OTP...' : 'Send OTP'}
+                <button
+                  type="submit"
+                  disabled={busy || !detailsValid}
+                  className="btn btn-primary w-full"
+                >
+                  {busy ? "Sending OTP..." : "Send OTP"}
                 </button>
 
                 <div className="pt-2 text-center">
@@ -298,23 +362,34 @@ export default function BarOwnerLoginPage() {
                     Register your bar
                   </Link>
                 </div>
-                <p className="pt-2 text-center text-xs text-soft">Trouble signing in? Contact support.</p>
+                <p className="pt-2 text-center text-xs text-soft">
+                  Trouble signing in? Contact support.
+                </p>
               </form>
             ) : (
               <form onSubmit={handleVerifyOtp} className="space-y-4" noValidate>
                 <div className="rounded-lg border border-strong bg-accent-tint/50 px-4 py-3 text-sm text-muted">
-                  OTP sent to <span className="font-semibold text-ink">{maskMobile(normalizedMobile)}</span>
+                  OTP sent to{" "}
+                  <span className="font-semibold text-ink">
+                    {maskMobile(normalizedMobile)}
+                  </span>
                 </div>
 
                 <div>
-                  <label htmlFor="otp" className="field-label">Enter OTP</label>
+                  <label htmlFor="otp" className="field-label">
+                    Enter OTP
+                  </label>
                   <input
                     id="otp"
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, otpLength))}
+                    onChange={(e) =>
+                      setOtp(
+                        e.target.value.replace(/\D/g, "").slice(0, otpLength),
+                      )
+                    }
                     required
                     autoFocus
                     className="input text-center font-numeric text-xl tracking-[0.35em]"
@@ -323,14 +398,24 @@ export default function BarOwnerLoginPage() {
                 </div>
 
                 {error && <ErrorBanner>{error}</ErrorBanner>}
-                {notice && <NoticeCard title="Bar access pending" message={notice} />}
+                {notice && (
+                  <NoticeCard title="Bar access pending" message={notice} />
+                )}
 
-                <button type="submit" disabled={busy || otp.length !== otpLength} className="btn btn-primary w-full">
-                  {busy ? 'Verifying...' : 'Verify & Continue'}
+                <button
+                  type="submit"
+                  disabled={busy || otp.length !== otpLength}
+                  className="btn btn-primary w-full"
+                >
+                  {busy ? "Verifying..." : "Verify & Continue"}
                 </button>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm">
-                  <button type="button" onClick={backToDetails} className="btn btn-ghost btn-sm">
+                  <button
+                    type="button"
+                    onClick={backToDetails}
+                    className="btn btn-ghost btn-sm"
+                  >
                     Change number
                   </button>
                   <button
@@ -339,14 +424,16 @@ export default function BarOwnerLoginPage() {
                     disabled={busy || cooldown > 0}
                     className="btn btn-ghost btn-sm"
                   >
-                    {cooldown > 0 ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}
+                    {cooldown > 0 ? `Resend OTP in ${cooldown}s` : "Resend OTP"}
                   </button>
                 </div>
               </form>
             )}
 
             <div className="mt-8 pt-6 border-t border-strong/30 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-soft mb-3">Shift Personnel?</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-soft mb-3">
+                Shift Personnel?
+              </p>
               <button
                 type="button"
                 onClick={() => setIsFlipped(true)}
@@ -381,8 +468,8 @@ function StaffLoginForm({
   sessionNotice?: string | null;
 }) {
   const router = useRouter();
-  const [mobile, setMobile] = useState('');
-  const [password, setPassword] = useState('');
+  const [mobile, setMobile] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -392,24 +479,27 @@ function StaffLoginForm({
     setError(null);
 
     // Normalize mobile number
-    let finalMobile = mobile.trim().replace(/\s/g, '');
+    let finalMobile = mobile.trim().replace(/\s/g, "");
     // If it's a simple 10-digit number, prepend +91 to match how staff are stored in the DB
     if (/^[6-9]\d{9}$/.test(finalMobile)) {
       finalMobile = `+91${finalMobile}`;
     }
 
     if (finalMobile.length < 10 || password.length < 4) {
-      setError('Please enter a valid mobile number and password.');
+      setError("Please enter a valid mobile number and password.");
       setBusy(false);
       return;
     }
 
     try {
-      const response = await loginStaff({ mobileNumber: finalMobile, password });
+      const response = await loginStaff({
+        mobileNumber: finalMobile,
+        password,
+      });
       persistStaffSession(response);
-      router.push('/floor');
+      router.push("/floor");
     } catch (err) {
-      setError(readApiMessage(err, 'Invalid mobile number or password.'));
+      setError(readApiMessage(err, "Invalid mobile number or password."));
       setBusy(false);
     }
   }
@@ -423,7 +513,9 @@ function StaffLoginForm({
           </div>
           <div>
             <p className="font-display text-lg leading-tight">SipSave</p>
-            <p className="text-[0.65rem] uppercase tracking-[0.25em] text-accent-lo">Noir Console</p>
+            <p className="text-[0.65rem] uppercase tracking-[0.25em] text-accent-lo">
+              Noir Console
+            </p>
           </div>
         </div>
       </div>
@@ -432,7 +524,9 @@ function StaffLoginForm({
         <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
           Staff Terminal Access
         </p>
-        <h1 className="mt-2 font-display text-4xl leading-tight text-ink">Staff Login.</h1>
+        <h1 className="mt-2 font-display text-4xl leading-tight text-ink">
+          Staff Login.
+        </h1>
         <span className="gold-rule mb-3 mt-3" aria-hidden="true" />
         <p className="text-sm text-muted">
           Enter your registered mobile number and password to begin your shift.
@@ -447,7 +541,9 @@ function StaffLoginForm({
 
       <form onSubmit={handleLogin} className="space-y-4" noValidate>
         <div>
-          <label htmlFor="staffMobile" className="field-label">Mobile number</label>
+          <label htmlFor="staffMobile" className="field-label">
+            Mobile number
+          </label>
           <input
             id="staffMobile"
             type="tel"
@@ -461,7 +557,9 @@ function StaffLoginForm({
         </div>
 
         <div>
-          <label htmlFor="staffPassword" className="field-label">Password</label>
+          <label htmlFor="staffPassword" className="field-label">
+            Password
+          </label>
           <input
             id="staffPassword"
             type="password"
@@ -475,12 +573,20 @@ function StaffLoginForm({
 
         {error && <ErrorBanner>{error}</ErrorBanner>}
 
-        <button type="submit" disabled={busy} className="btn btn-primary w-full">
-          {busy ? 'Verifying...' : 'Login to Terminal'}
+        <button
+          type="submit"
+          disabled={busy}
+          className="btn btn-primary w-full"
+        >
+          {busy ? "Verifying..." : "Login to Terminal"}
         </button>
 
         <div className="pt-2 text-center">
-          <button type="button" onClick={onBack} className="btn btn-ghost btn-sm">
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn btn-ghost btn-sm"
+          >
             ← Back to Owner Login
           </button>
         </div>
@@ -490,30 +596,61 @@ function StaffLoginForm({
 }
 
 function persistOwnerSession(response: VerifyOtpResponse): void {
-  window.sessionStorage.setItem('sipsave-barowner-access-token', response.tokens.accessToken);
-  window.sessionStorage.setItem('sipsave-barowner-refresh-token', response.tokens.refreshToken);
-  window.sessionStorage.setItem('sipsave-barowner-token-type', response.tokens.tokenType);
-  window.sessionStorage.setItem('sipsave-barowner-access-token-expires-at', response.tokens.accessTokenExpiresAtUtc);
-  window.sessionStorage.setItem('sipsave-barowner-user', JSON.stringify(response.user));
+  window.sessionStorage.setItem(
+    "sipsave-barowner-access-token",
+    response.tokens.accessToken,
+  );
+  window.sessionStorage.setItem(
+    "sipsave-barowner-refresh-token",
+    response.tokens.refreshToken,
+  );
+  window.sessionStorage.setItem(
+    "sipsave-barowner-token-type",
+    response.tokens.tokenType,
+  );
+  window.sessionStorage.setItem(
+    "sipsave-barowner-access-token-expires-at",
+    response.tokens.accessTokenExpiresAtUtc,
+  );
+  window.sessionStorage.setItem(
+    "sipsave-barowner-user",
+    JSON.stringify(response.user),
+  );
 
-  if (response.user.email) window.sessionStorage.setItem('sipsave-barowner-email', response.user.email);
-  if (response.user.fullName) window.sessionStorage.setItem('sipsave-barowner-full-name', response.user.fullName);
-  if (response.user.barId && response.user.barId > 0) setActiveBarId(response.user.barId);
+  if (response.user.email)
+    window.sessionStorage.setItem(
+      "sipsave-barowner-email",
+      response.user.email,
+    );
+  if (response.user.fullName)
+    window.sessionStorage.setItem(
+      "sipsave-barowner-full-name",
+      response.user.fullName,
+    );
+  if (response.user.barId && response.user.barId > 0)
+    setActiveBarId(response.user.barId);
 }
 
 function persistStaffSession(response: StaffLoginResponse): void {
-  window.sessionStorage.setItem('sipsave-staff-access-token', response.accessToken);
-  window.sessionStorage.setItem('sipsave-staff-access-token-expires-at', response.expiresAtUtc);
+  window.sessionStorage.setItem(
+    "sipsave-staff-access-token",
+    response.accessToken,
+  );
+  window.sessionStorage.setItem(
+    "sipsave-staff-access-token-expires-at",
+    response.expiresAtUtc,
+  );
 
   const userObj = {
     id: response.staffId,
     fullName: response.fullName,
     role: response.role,
-    barId: response.barId
+    barId: response.barId,
   };
-  window.sessionStorage.setItem('sipsave-staff-user', JSON.stringify(userObj));
+  window.sessionStorage.setItem("sipsave-staff-user", JSON.stringify(userObj));
 
-  if (response.fullName) window.sessionStorage.setItem('sipsave-staff-full-name', response.fullName);
+  if (response.fullName)
+    window.sessionStorage.setItem("sipsave-staff-full-name", response.fullName);
   if (response.barId && response.barId > 0) setActiveBarId(response.barId);
 }
 
@@ -524,10 +661,16 @@ function persistBarDetails(bar: BarDetails): void {
 function getBarAccessMessage(bar: BarDetails): string {
   const status = bar.verificationQueueMessage?.trim();
   if (!bar.isVerified) {
-    return status || `${bar.businessName} is not verified yet. Please wait for verification before opening the owner dashboard.`;
+    return (
+      status ||
+      `${bar.businessName} is not verified yet. Please wait for verification before opening the owner dashboard.`
+    );
   }
   if (!bar.isActive) {
-    return status || `${bar.businessName} is not active right now. Please contact support to activate your bar.`;
+    return (
+      status ||
+      `${bar.businessName} is not active right now. Please contact support to activate your bar.`
+    );
   }
   return status || `${bar.businessName} is not ready for dashboard access yet.`;
 }
@@ -562,11 +705,11 @@ function NoticeCard({
 function readApiMessage(err: unknown, fallback: string): string {
   if (!(err instanceof ApiError)) return fallback;
   const body = err.body;
-  if (body && typeof body === 'object') {
+  if (body && typeof body === "object") {
     const record = body as Record<string, unknown>;
-    if (typeof record.detail === 'string') return record.detail;
-    if (typeof record.message === 'string') return record.message;
-    if (typeof record.title === 'string') return record.title;
+    if (typeof record.detail === "string") return record.detail;
+    if (typeof record.message === "string") return record.message;
+    if (typeof record.title === "string") return record.title;
   }
   return err.message || fallback;
 }
