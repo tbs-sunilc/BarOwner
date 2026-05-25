@@ -129,7 +129,7 @@ export default function RegisterPage() {
         mobileNumber: normalizedMobile,
       });
       setOtpMeta(response);
-      setOtp('');
+      setOtp(response.otpLength.toString());
       setCooldown(response.resendCooldownSeconds || 30);
       setStage('otp');
     } catch (err) {

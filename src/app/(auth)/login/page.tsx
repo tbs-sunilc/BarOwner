@@ -104,7 +104,7 @@ export default function BarOwnerLoginPage() {
       }
 
       setOtpMeta(response);
-      setOtp("");
+      setOtp(response.otpLength.toString());
       setCooldown(response.resendCooldownSeconds || 30);
       setStep("otp");
     } catch (err) {
