@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getTabletState, TabletState } from '@/lib/tablet-state';
+import { getActiveBarId } from '@/lib/active-bar';
+import { getTabletState, TabletState, saveTabletState } from '@/lib/tablet-state';
+import { fetchCustomerLookup as lookupCustomerByMobile } from '@/lib/api-client';
 
 export default function CustomerLookupPage() {
   const router = useRouter();
@@ -21,6 +23,86 @@ export default function CustomerLookupPage() {
     return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading customer lookup...</div>;
   }
 
+  const normalize = (value: string) => value.replace(/\W/g, '').toLowerCase();
+
+  const normalizeMobileForLookup = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length === 10) return digits;
+    if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+    if (digits.length > 10) return digits.slice(-10);
+    return digits;
+  };
+
+  type CustomerProfile = NonNullable<TabletState['customerProfile']>;
+
+  const fetchCustomerLookup = async (mobile: string): Promise<CustomerProfile | null> => {
+    const normalizedMobile = normalizeMobileForLookup(mobile);
+    if (!normalizedMobile) return null;
+
+    try {
+      const barId = getActiveBarId() ?? 1;
+      const data = await lookupCustomerByMobile(normalizedMobile, barId);
+      return {
+        name: data.name,
+        mobile: data.mobile,
+        kycStatus: data.kycStatus,
+        table: data.currentTable ?? 'Unknown',
+        wallets: (data.wallets || []).map((wallet: any) => ({
+          id: wallet.id,
+          name: wallet.name,
+          balance: wallet.balance,
+          total: wallet.total,
+          lastServed: wallet.lastServed,
+          warning: wallet.warning,
+        })),
+      };
+    } catch (error) {
+      console.error('[CustomerLookup] lookup failed', error);
+      return null;
+    }
+  };
+
+  const buildCustomerProfile = (
+    customerName: string,
+    fallbackMobile?: string
+  ): CustomerProfile => {
+    const normalizedName = normalize(customerName);
+    const customerPours = state.pourQueue.filter(p => normalize(p.customer) === normalizedName);
+    const table = state.tables.find(
+      t =>
+        (t.customerName && normalize(t.customerName) === normalizedName) ||
+        customerPours.some(p => p.tableId === t.id)
+    );
+
+    const mobile =
+      state.customerProfile?.name === customerName
+        ? state.customerProfile.mobile
+        : fallbackMobile || state.customerProfile?.mobile || 'Unknown';
+
+    const wallets =
+      customerPours.length > 0
+        ? customerPours.map((pour) => ({
+            id: pour.id,
+            name: pour.bottle,
+            balance: pour.walletBalance,
+            total: 750,
+            lastServed: pour.waitTime,
+            warning: pour.walletBalance < 200 ? 'Low balance' : undefined,
+          }))
+        : state.customerProfile?.name === customerName
+        ? state.customerProfile.wallets
+        : [];
+
+    return {
+      name: customerName,
+      mobile,
+      kycStatus: customerPours.length > 0 ? 'Verified' : state.customerProfile?.name === customerName ? state.customerProfile.kycStatus : 'Unknown',
+      table: table ? `Table ${table.id}` : customerPours.length > 0 ? `Table ${customerPours[0].tableId}` : 'Unknown',
+      wallets,
+    };
+  };
+
   const handleToggle = (mode: 'qr' | 'mobile') => {
     setLookupMode(mode);
     setShowNotFound(false);
@@ -28,33 +110,95 @@ export default function CustomerLookupPage() {
 
   const handleScanClick = () => {
     setShowNotFound(false);
-    setShowProfile(true);
+
+    const pour = state.pourQueue[0];
+    let profile: TabletState['customerProfile'] | null = null;
+
+    if (pour) {
+      profile = buildCustomerProfile(pour.customer);
+    } else if (state.customerProfile) {
+      profile = buildCustomerProfile(state.customerProfile.name, state.customerProfile.mobile);
+    }
+
+    const newState = { ...state, customerProfile: profile };
+    setState(newState);
+    saveTabletState(newState);
+    setShowProfile(Boolean(profile));
+
     if ((window as any).toast) {
-      (window as any).toast('✅ QR scanned — Arjun Mehta loaded', 's');
+      (window as any).toast(profile ? `✅ QR scanned — ${profile.name} loaded` : '⚠️ No customer data', profile ? 's' : 'w');
     }
   };
 
-  const handleMobileSearch = (val: string) => {
+  const handleMobileSearch = async (val: string) => {
     setMobileValue(val);
-    if (val.includes('000000')) {
-      setShowNotFound(true);
-      setShowProfile(false);
-    } else if (val.replace(/\D/g, '').length >= 10) {
-      setShowNotFound(false);
-      setShowProfile(true);
-      if ((window as any).toast) {
-        (window as any).toast('✅ Mobile search match — Arjun Mehta loaded', 's');
-      }
+    setShowNotFound(false);
+    setShowProfile(false);
+
+    const digits = val.replace(/\D/g, '');
+    if (digits.length < 4) {
+      return;
     }
+
+    // If the currently loaded customer already matches this mobile pattern, keep it
+    if (
+      state.customerProfile &&
+      state.customerProfile.mobile.replace(/\D/g, '').includes(digits)
+    ) {
+      const newState = { ...state, customerProfile: state.customerProfile };
+      setState(newState);
+      saveTabletState(newState);
+      setShowProfile(true);
+      if ((window as any).toast) (window as any).toast(`✅ Mobile search match — ${state.customerProfile.name} loaded`, 's');
+      return;
+    }
+
+    // Local queue/table lookup by name if input is not a full mobile number.
+    const normalized = normalize(val);
+    const byName = state.pourQueue.find(p => normalize(p.customer).includes(normalized));
+    const byTable = state.tables.find(
+      t => t.customerName && normalize(t.customerName).includes(normalized)
+    );
+    const matchName = byName?.customer || byTable?.customerName;
+
+    if (matchName) {
+      const profile = buildCustomerProfile(matchName, state.customerProfile?.mobile);
+      const newState = { ...state, customerProfile: profile };
+      setState(newState);
+      saveTabletState(newState);
+      setShowProfile(true);
+      if ((window as any).toast) (window as any).toast(`✅ Customer found — ${profile.name} loaded`, 's');
+      return;
+    }
+
+    // Remote lookup via the dynamic customer lookup API.
+    const queryMobile = normalizeMobileForLookup(val);
+    const profile = await fetchCustomerLookup(queryMobile);
+
+    if (profile) {
+      const newState = { ...state, customerProfile: profile };
+      setState(newState);
+      saveTabletState(newState);
+      setShowProfile(true);
+      if ((window as any).toast) (window as any).toast(`✅ Mobile lookup loaded — ${profile.name}`, 's');
+      return;
+    }
+
+    setShowNotFound(true);
+    setShowProfile(false);
   };
 
   const handleServeWallet = (walletId: number) => {
-    // Find if there is a pending pour request for Table 2 (Arjun Mehta)
-    const pour = state.pourQueue.find(q => q.customer === 'Arjun M.' && q.id === 5002);
+    // Find a pending pour for the currently loaded customer and requested wallet
+    const custName = state.customerProfile?.name;
+    const pour = state.pourQueue.find(q => q.customer === custName && q.id === walletId) || state.pourQueue.find(q => q.customer === custName) || state.pourQueue.find(q => q.id === walletId);
+
     if (pour) {
       router.push(`/serve/${pour.id}`);
     } else {
-      router.push(`/serve/5002`);
+      // fallback to first pour or a manual serve screen
+      const first = state.pourQueue[0];
+      router.push(first ? `/serve/${first.id}` : '/serve/5002');
     }
   };
 
@@ -77,9 +221,9 @@ export default function CustomerLookupPage() {
             </p>
           </div>
         </div>
-        <Link href="/queue" className="btn-tablet btn-tablet-r !py-2.5 !px-5 !text-xs relative">
+        <Link href="/queue" className="btn-tablet btn-tablet-a !py-1.5 !px-4">
           🔔 Pour Queue
-          <span className="ml-1 bg-white text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-black">
+          <span className="ml-1 bg-white text-rose px-2 py-0.5 rounded-full text-[10px] font-black">
             {state.pourQueue.length}
           </span>
         </Link>
@@ -184,7 +328,7 @@ export default function CustomerLookupPage() {
                     A
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black tracking-tighter">{state.customerProfile.name}</h2>
+                    <h2 className="text-2xl text-white tracking-tighter">{state.customerProfile.name}</h2>
                     <p className="text-indigo-300 text-sm font-bold mt-0.5">{state.customerProfile.mobile}</p>
                     
                     <div className="flex gap-2 mt-4">
