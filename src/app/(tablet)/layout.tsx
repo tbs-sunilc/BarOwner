@@ -78,9 +78,7 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
           <Link href="/queue" className="btn-tablet btn-tablet-a !py-1.5 !px-4">
             Pour Queue
           </Link>
-   <Link href="/queue" className="btn-tablet btn-tablet-a !py-1.5 !px-4">
-  Pour Queue
-</Link>
+  
 
     <Link href="/floor" className="btn-tablet btn-tablet-a !py-1.5 !px-4">
       Floor Plan
