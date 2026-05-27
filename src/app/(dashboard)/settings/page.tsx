@@ -38,10 +38,6 @@ export default function SettingsPage() {
   const [description, setDescription] = useState('');
   const [contactMobile, setContactMobile] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [photoGalleryUrls, setPhotoGalleryUrls] = useState('');
-  const [ambianceTags, setAmbianceTags] = useState('');
-  const [openingHoursJson, setOpeningHoursJson] = useState('');
 
   const loadSettings = useCallback(async (id: number) => {
     setError(null);
@@ -51,10 +47,6 @@ export default function SettingsPage() {
     setDescription(data.description ?? '');
     setContactMobile(data.contactMobile);
     setContactEmail(data.contactEmail ?? '');
-    setLogoUrl(data.logoUrl ?? '');
-    setPhotoGalleryUrls((data.photoGalleryUrls ?? []).join('\n'));
-    setAmbianceTags((data.ambianceTags ?? []).join(', '));
-    setOpeningHoursJson(data.openingHoursJson ?? '');
     setActiveBarDetails({
       barId: data.barId,
       businessName: data.businessName,
@@ -123,10 +115,6 @@ export default function SettingsPage() {
         description: description.trim() || null,
         contactMobile: mobile || null,
         contactEmail: contactEmail.trim() || null,
-        logoUrl: logoUrl.trim() || null,
-        photoGalleryUrls: splitLines(photoGalleryUrls),
-        ambianceTags: splitCsv(ambianceTags),
-        openingHoursJson: openingHoursJson.trim() || null,
       });
       await loadSettings(barId);
       setNotice('Profile saved.');
@@ -269,44 +257,6 @@ export default function SettingsPage() {
               />
             </Field>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <Field label="Logo URL">
-                <input
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  className="w-full rounded-lg border-slate-300 text-sm"
-                />
-              </Field>
-              <Field label="Ambiance tags">
-                <input
-                  value={ambianceTags}
-                  onChange={(e) => setAmbianceTags(e.target.value)}
-                  placeholder="Rooftop, Live music, Lounge"
-                  className="w-full rounded-lg border-slate-300 text-sm"
-                />
-              </Field>
-            </div>
-
-            <Field label="Photo gallery URLs">
-              <textarea
-                rows={3}
-                value={photoGalleryUrls}
-                onChange={(e) => setPhotoGalleryUrls(e.target.value)}
-                placeholder="One image URL per line"
-                className="w-full rounded-lg border-slate-300 text-sm"
-              />
-            </Field>
-
-            <Field label="Opening hours JSON">
-              <textarea
-                rows={4}
-                value={openingHoursJson}
-                onChange={(e) => setOpeningHoursJson(e.target.value)}
-                placeholder='{"Mon":{"open":"17:00","close":"01:00"}}'
-                className="w-full rounded-lg border-slate-300 text-sm font-mono"
-              />
-            </Field>
-
             <button
               type="button"
               onClick={handleSaveProfile}
@@ -384,12 +334,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   );
-}
-
-function splitCsv(value: string): string[] {
-  return value.split(',').map((item) => item.trim()).filter(Boolean);
-}
-
-function splitLines(value: string): string[] {
-  return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }

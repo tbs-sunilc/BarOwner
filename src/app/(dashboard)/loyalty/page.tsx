@@ -178,19 +178,6 @@ export default function LoyaltyPage() {
               className={`${INPUT_CLASS} max-w-[10rem]`} />
           </FormField>
 
-          <FormRow>
-            <FormField label="Starts on">
-              <input type="date" value={form.startsOn}
-                onChange={(e) => update('startsOn', e.target.value)}
-                className={INPUT_CLASS} />
-            </FormField>
-            <FormField label="Ends on (optional)">
-              <input type="date" value={form.endsOn ?? ''}
-                onChange={(e) => update('endsOn', e.target.value || null)}
-                className={INPUT_CLASS} />
-            </FormField>
-          </FormRow>
-
           <div className="flex items-center gap-3">
             <button
               onClick={handleSave}
