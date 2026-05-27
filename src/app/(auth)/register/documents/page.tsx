@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBanner } from '@/components/ui';
 import { RegistrationStepper } from '@/components/ui/RegistrationStepper';
-import { ApiError, registerBar, submitBarDocuments, type RegisterBarPayload } from '@/lib/api-client';
+import { ApiError, registerBar, submitBarDocumentsForm, type RegisterBarPayload } from '@/lib/api-client';
 import { clearRegistrationStep1, loadRegistrationStep1, type BarRegistrationStep1 } from '@/lib/registration-storage';
 import { saveKycStatus } from '@/lib/kyc-status';
 
@@ -75,13 +75,13 @@ export default function DocumentsPage() {
     setSubmitting(true);
     setErrorBanner(null);
     try {
-      const created = await registerBar(buildRegisterPayload(step1, gstin, fssaiNumber, liquorNumber));
-      await submitBarDocuments(created.barId, {
-        liquorLicenceDocKey: placeholderUrl(created.barId, 'liquor', docs.liquor!),
-        fssaiDocKey: placeholderUrl(created.barId, 'fssai', docs.fssai!),
-        gstinDocKey: placeholderUrl(created.barId, 'gstin', docs.gstin!),
-        photoGalleryKeys: docs.photos.map((p, i) => placeholderUrl(created.barId, `photo-${i + 1}`, p)),
-      });
+        const created = await registerBar(buildRegisterPayload(step1, gstin, fssaiNumber, liquorNumber));
+      const formData = new FormData();
+      formData.append('gstinDocument', docs.gstin!);
+      formData.append('fssaiDocument', docs.fssai!);
+      formData.append('liquorLicenceDocument', docs.liquor!);
+      docs.photos.forEach((photo) => formData.append('photoGallery', photo));
+      await submitBarDocumentsForm(created.barId, formData);
       clearRegistrationStep1();
       // Save KYC status as "under_review"
       saveKycStatus({
@@ -176,13 +176,6 @@ function buildRegisterPayload(step1: BarRegistrationStep1, gstin: string, fssai:
   return { businessName: step1.businessName, contactMobile: normalizeIndianMobile(step1.mobileNumber), contactEmail: step1.email, addressLine1: step1.addressLine1, city: step1.city, stateCode: step1.stateCode, pincode: step1.pincode, latitude: step1.latitude, longitude: step1.longitude, gstin, fssaiLicenceNumber: fssai, liquorLicenceNumber: liquor, ambianceTags: step1.ambianceTags, openingHoursJson: JSON.stringify(hours) };
 }
 
-function placeholderUrl(barId: number, slot: string, file: File): string {
-  return `bars/${barId}/${slot}-${Date.now()}-${file.name.replace(/[^A-Za-z0-9._-]/g, '_')}`;
-}
-
 function normalizeIndianMobile(mobile: string): string {
-    return mobile.replace(/\D/g, '');
-
-  //const digits = mobile.replace(/\D/g, '');
- // return digits.startsWith('91') ? `+${digits}` : `+91${digits}`;
+  return mobile.replace(/\D/g, '');
 }

@@ -19,7 +19,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body)
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData))
     headers.set("Content-Type", "application/json");
 
   if (typeof window !== "undefined") {
@@ -363,6 +363,15 @@ export const submitBarDocuments = (
   request<void>(`/api/v1/bars/${barId}/documents`, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+
+export const submitBarDocumentsForm = (
+  barId: number,
+  formData: FormData,
+) =>
+  request<void>(`/api/v1/bars/${barId}/documents`, {
+    method: "POST",
+    body: formData,
   });
 
 export type BarDetails = {
