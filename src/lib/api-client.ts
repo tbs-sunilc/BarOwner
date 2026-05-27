@@ -392,6 +392,10 @@ export type BarOwnerSettings = {
   description: string | null;
   contactMobile: string;
   contactEmail: string | null;
+  logoUrl?: string | null;
+  photoGalleryUrls?: string[];
+  ambianceTags?: string[];
+  openingHoursJson?: string | null;
   city: string;
   stateCode: string;
   isVerified: boolean;
@@ -412,6 +416,10 @@ export type UpdateBarProfilePayload = {
   description?: string | null;
   contactMobile?: string | null;
   contactEmail?: string | null;
+  ambianceTags?: string[] | null;
+  openingHoursJson?: string | null;
+  logoUrl?: string | null;
+  photoGalleryUrls?: string[] | null;
 };
 
 export const updateBarProfile = (barId: number, payload: UpdateBarProfilePayload) => {
@@ -742,6 +750,17 @@ export const listOffers = (barId: number, includeInactive = false) =>
 export const createOffer = (barId: number, payload: CreateOfferPayload) =>
   request<OfferDto>(`/api/v1/bars/${barId}/offers`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const getOffer = (offerId: number) =>
+  request<OfferDto>(`/api/v1/offers/${offerId}`);
+
+export type UpdateOfferPayload = CreateOfferPayload & { isActive: boolean };
+
+export const updateOffer = (offerId: number, payload: UpdateOfferPayload) =>
+  request<OfferDto>(`/api/v1/offers/${offerId}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 
@@ -1139,6 +1158,23 @@ export const createStaff = (barId: number, payload: CreateStaffPayload) =>
     body: JSON.stringify(payload),
   });
 
+export type UpdateStaffPayload = Omit<CreateStaffPayload, "password">;
+
+export const getStaff = (staffId: number) =>
+  request<StaffRowDto>(`/api/v1/staff/${staffId}`);
+
+export const updateStaff = (staffId: number, payload: UpdateStaffPayload) =>
+  request<StaffRowDto>(`/api/v1/staff/${staffId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+export const resetStaffPassword = (staffId: number, password: string) =>
+  request<StaffRowDto>(`/api/v1/staff/${staffId}/password`, {
+    method: "PUT",
+    body: JSON.stringify({ password }),
+  });
+
 export const setStaffActive = (staffId: number, isActive: boolean) =>
   request<StaffRowDto>(`/api/v1/staff/${staffId}/active`, {
     method: "PUT",
@@ -1183,6 +1219,26 @@ export const createBarTables = (barId: number, tables: CreateBarTableSpec[]) =>
   request<BarTable[]>(`/api/v1/bars/${barId}/tables`, {
     method: "POST",
     body: JSON.stringify({ tables }),
+  });
+
+export const updateBarTable = (
+  barId: number,
+  tableId: number,
+  payload: CreateBarTableSpec,
+) =>
+  request<BarTable>(`/api/v1/bars/${barId}/tables/${tableId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+export const setBarTableActive = (
+  barId: number,
+  tableId: number,
+  isActive: boolean,
+) =>
+  request<BarTable>(`/api/v1/bars/${barId}/tables/${tableId}/active`, {
+    method: "PUT",
+    body: JSON.stringify({ isActive }),
   });
 
 export async function downloadBarTableQrPng(
@@ -1234,3 +1290,54 @@ export async function downloadBarTableQrBundle(barId: number): Promise<void> {
     `sipsave-table-qr-codes-bar-${barId}.pdf`;
   triggerDownload(blob, filename);
 }
+
+// ---- Featured listings ----
+
+export type FeaturedListingDto = {
+  id: number;
+  barId: number;
+  paymentId: number | null;
+  slotType: string;
+  scopeCity: string | null;
+  scopeCategory: string | null;
+  priority: number;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  impressionCount: number;
+  clickCount: number;
+  status: string;
+  cancelledAtUtc: string | null;
+  cancellationReason: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+};
+
+export type FeaturedListingPayload = {
+  slotType: string;
+  scopeCity?: string | null;
+  scopeCategory?: string | null;
+  priority?: number | null;
+  startsAtUtc: string;
+  endsAtUtc: string;
+};
+
+export const listFeaturedListings = (barId: number) =>
+  request<FeaturedListingDto[]>(`/api/v1/bars/${barId}/featured-listings`);
+
+export const createFeaturedListing = (
+  barId: number,
+  payload: FeaturedListingPayload,
+) =>
+  request<FeaturedListingDto>(`/api/v1/bars/${barId}/featured-listings`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const updateFeaturedListing = (
+  id: number,
+  payload: FeaturedListingPayload & { status: string },
+) =>
+  request<FeaturedListingDto>(`/api/v1/featured-listings/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });

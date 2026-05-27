@@ -10,6 +10,8 @@ import {
   downloadBarTableQrBundle,
   downloadBarTableQrPng,
   listBarTables,
+  setBarTableActive,
+  updateBarTable,
 } from "@/lib/api-client";
 import { getActiveBarId, setActiveBarId } from "@/lib/active-bar";
 
@@ -211,8 +213,15 @@ export default function TablesPage() {
                   <TableRow
                     key={t.id}
                     table={t}
+                    barId={barId}
                     downloadingQr={downloadingId === t.id}
                     onDownloadQr={() => onDownloadPng(t)}
+                    onChanged={(updated) =>
+                      setTables((prev) =>
+                        prev.map((row) => (row.id === updated.id ? updated : row)),
+                      )
+                    }
+                    onError={setError}
                   />
                 ))}
             </tbody>
@@ -286,16 +295,90 @@ function Th({
 
 function TableRow({
   table,
+  barId,
   downloadingQr,
   onDownloadQr,
+  onChanged,
+  onError,
 }: {
   table: BarTable;
+  barId: number | null;
   downloadingQr: boolean;
   onDownloadQr: () => void;
+  onChanged: (table: BarTable) => void;
+  onError: (message: string | null) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [tableNumber, setTableNumber] = useState(table.tableNumber);
+  const [capacity, setCapacity] = useState<number | "">(table.capacity ?? "");
+  const [floorSection, setFloorSection] = useState(table.floorSection ?? "");
+  const [busy, setBusy] = useState(false);
   const rowBg = table.isActive
     ? "bg-white hover:bg-slate-50"
     : "bg-slate-50/60 text-slate-400 hover:bg-slate-100";
+
+  async function saveEdit() {
+    if (!barId) return;
+    if (!tableNumber.trim()) {
+      onError("Table number is required.");
+      return;
+    }
+    setBusy(true);
+    onError(null);
+    try {
+      const updated = await updateBarTable(barId, table.id, {
+        tableNumber: tableNumber.trim(),
+        capacity: capacity === "" ? null : Number(capacity),
+        floorSection: floorSection.trim() || null,
+      });
+      onChanged(updated);
+      setEditing(false);
+    } catch (ex) {
+      onError(ex instanceof ApiError ? ex.message : "Failed to update table.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleActive() {
+    if (!barId) return;
+    setBusy(true);
+    onError(null);
+    try {
+      onChanged(await setBarTableActive(barId, table.id, !table.isActive));
+    } catch (ex) {
+      onError(ex instanceof ApiError ? ex.message : "Failed to update table status.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <tr className="bg-violet-50/40 border-t border-slate-100">
+        <td className="px-3 py-2.5">
+          <input value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} maxLength={20} className="w-full px-2 py-1 text-sm border border-slate-200 rounded" />
+        </td>
+        <td className="px-3 py-2.5">
+          <input value={floorSection} onChange={(e) => setFloorSection(e.target.value)} maxLength={50} className="w-full px-2 py-1 text-sm border border-slate-200 rounded" />
+        </td>
+        <td className="px-3 py-2.5">
+          <input type="number" min={1} max={100} value={capacity} onChange={(e) => setCapacity(e.target.value === "" ? "" : Number(e.target.value))} className="w-24 px-2 py-1 text-sm border border-slate-200 rounded text-right" />
+        </td>
+        <td className="px-3 py-2.5">{table.isActive ? "Active" : "Inactive"}</td>
+        <td className="px-3 py-2.5">
+          <code className="text-[10px] text-slate-400 font-mono">{table.qrToken.slice(0, 12)}...</code>
+        </td>
+        <td className="px-3 py-2.5">
+          <div className="flex gap-2">
+            <button type="button" onClick={saveEdit} disabled={busy} className="px-2.5 py-1 text-xs font-semibold rounded bg-violet-600 text-white disabled:opacity-50">Save</button>
+            <button type="button" onClick={() => setEditing(false)} disabled={busy} className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded">Cancel</button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <tr className={`${rowBg} border-t border-slate-100 transition`}>
       <td className="px-3 py-2.5 font-semibold text-slate-800">
@@ -327,10 +410,26 @@ function TableRow({
         <button
           type="button"
           onClick={onDownloadQr}
-          disabled={downloadingQr}
+          disabled={downloadingQr || busy}
           className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded hover:bg-white disabled:opacity-50 disabled:cursor-wait"
         >
           {downloadingQr ? "…" : "Download QR"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          disabled={busy}
+          className="ml-2 px-2.5 py-1 text-xs font-medium border border-slate-200 rounded hover:bg-white disabled:opacity-50"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          onClick={toggleActive}
+          disabled={busy}
+          className="ml-2 px-2.5 py-1 text-xs font-medium border border-slate-200 rounded hover:bg-white disabled:opacity-50"
+        >
+          {table.isActive ? "Deactivate" : "Reactivate"}
         </button>
       </td>
     </tr>

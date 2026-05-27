@@ -134,6 +134,12 @@ export default function OffersPage() {
               >
                 {o.isActive ? 'Pause' : 'Activate'}
               </button>
+              <Link
+                href={`/offers/${o.id}/edit`}
+                className="text-xs font-semibold px-3 py-1.5 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                Edit
+              </Link>
             </div>
           </li>
         ))}

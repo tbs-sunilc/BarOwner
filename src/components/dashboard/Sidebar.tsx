@@ -17,9 +17,11 @@ const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?:
   { href: '/tables', icon: <IconTable />, label: 'Tables & QR Codes', group: 'core' },
   { href: '/staff', icon: <IconUsers />, label: 'Staff Accounts', group: 'core' },
   { href: '/revenue', icon: <IconRevenue />, label: 'Revenue', group: 'core' },
+
   { href: '/offers', icon: <IconGift />, label: 'Offers', group: 'growth' },
   { href: '/loyalty', icon: <IconSpark />, label: 'Loyalty', group: 'growth' },
   { href: '/campaigns', icon: <IconMegaphone />, label: 'Campaigns', group: 'growth' },
+  { href: '/featured-listings', icon: <IconSpark />, label: 'Featured Listings', group: 'growth' },
   { href: '/subscription', icon: <IconCard />, label: 'Subscription', group: 'account' },
   { href: '/settings', icon: <IconGear />, label: 'Settings', group: 'account' },
 ];
