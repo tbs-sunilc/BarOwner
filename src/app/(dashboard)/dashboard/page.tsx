@@ -8,10 +8,12 @@ import {
   getDashboard,
   getBarDetails,
   listBarTables,
+  listWalletPurchases,
   downloadRevenueExport,
   simulateSubscriptionPaymentFailure,
   simulateSubscriptionRestore,
   type BarTableDto,
+  type BarWalletPurchaseListItemDto,
   type DashboardDto,
   BarTable,
   downloadBarTableQrBundle,
@@ -32,6 +34,9 @@ export default function DashboardPage() {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [tables, setTables] = useState<BarTable[]>([]);
+  const [recentWalletPurchases, setRecentWalletPurchases] = useState<
+    BarWalletPurchaseListItemDto[]
+  >([]);
   const [bundleDownloading, setBundleDownloading] = useState(false);
   const [subscriptionQaAction, setSubscriptionQaAction] = useState<
     "failure" | "restore" | null
@@ -108,13 +113,15 @@ export default function DashboardPage() {
         return;
       }
 
-      // 2. Load Dashboard + table QR data for the active bar
-      const [dashboardData, tableData] = await Promise.all([
+      // 2. Load Dashboard + table QR data + real recent wallet purchases for the active bar
+      const [dashboardData, tableData, walletPurchaseData] = await Promise.all([
         getDashboard(bar.barId),
         loadQrTables(bar.barId),
+        listWalletPurchases(bar.barId, 0, 5),
       ]);
       setData(dashboardData);
       setQrTables(tableData);
+      setRecentWalletPurchases(walletPurchaseData);
     } catch (err) {
       console.error("Dashboard load error:", err);
       if (err instanceof ApiError && err.status === 401) {
@@ -218,7 +225,7 @@ export default function DashboardPage() {
 
   if (!data) return null;
 
-  const { kpis, revenueChart, topBottles, recentTransactions, subscription } = data;
+  const { kpis, revenueChart, topBottles, subscription } = data;
   const visibleRevenueChart = revenueChart.slice(-7);
   const maxRevenue = Math.max(...visibleRevenueChart.map((p) => p.revenueInPaise), 0);
 
@@ -559,68 +566,74 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-orange-900/10 bg-[#df8b0b]">
-                {recentTransactions.length > 0 ? (
-                  recentTransactions.map((tx) => (
-                    <tr
-                      key={tx.paymentId}
-                      className="hover:bg-white/5 transition-colors border-b border-orange-900/10"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${getUserColor(tx.paymentId)}`}
-                          >
-                            {tx.purpose.substring(0, 1)}
+                {recentWalletPurchases.length > 0 ? (
+                  recentWalletPurchases.map((tx) => {
+                    const customerName = tx.customerName || "Unknown customer";
+                    const capturedAt = tx.capturedAtUtc ?? tx.createdAtUtc;
+
+                    return (
+                      <tr
+                        key={tx.paymentId}
+                        className="hover:bg-white/5 transition-colors border-b border-orange-900/10"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${getUserColor(tx.paymentId)}`}
+                            >
+                              {customerName.substring(0, 1).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-ink-2">{customerName}</p>
+                              <p className="text-[11px] font-medium text-muted">
+                                {tx.customerMobile || "No mobile"}
+                              </p>
+                            </div>
                           </div>
-                          <span className="font-bold text-ink-2">
-                            {tx.purpose.split(" ")[0]} M.
+                        </td>
+                        <td className="px-6 py-4 font-bold text-ink-3">
+                          {tx.bottleName || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-muted font-medium">
+                          {tx.volumeMl == null ? "-" : `${tx.volumeMl}ml`}
+                        </td>
+                        <td className="px-6 py-4 font-bold text-[#5e5ce6] tabular-nums">
+                          {formatCurrency(tx.amountInPaise)}
+                        </td>
+                        <td className="px-6 py-4 text-muted font-medium">
+                          {tx.paymentMethod || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-muted font-medium tabular-nums">
+                          {new Date(capturedAt).toLocaleTimeString(
+                            "en-IN",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            },
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`status-pill ${tx.status === "Captured" ? "status-success" : "status-danger opacity-80"}`}
+                          >
+                            {tx.status === "Captured" ? "Captured" : "Failed"}
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-bold text-ink-3">
-                        {tx.purpose.includes("Purchase")
-                          ? "JW Black Label"
-                          : tx.purpose}
-                      </td>
-                      <td className="px-6 py-4 text-muted font-medium">
-                        750ml
-                      </td>
-                      <td className="px-6 py-4 font-bold text-[#5e5ce6] tabular-nums">
-                        {formatCurrency(tx.amountInPaise)}
-                      </td>
-                      <td className="px-6 py-4 text-muted font-medium">
-                        {tx.paymentMethod || "UPI"}
-                      </td>
-                      <td className="px-6 py-4 text-muted font-medium tabular-nums">
-                        {new Date(tx.capturedAtUtc).toLocaleTimeString(
-                          "en-IN",
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          },
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`status-pill ${tx.status === "Captured" ? "status-success" : "status-danger opacity-80"}`}
-                        >
-                          {tx.status === "Captured" ? "Captured" : "Failed"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {tx.status === 'Captured' ? (
-                          <Link href={`/wallet-purchases/${tx.paymentId}`} className="btn btn-sm btn-secondary bg-white border-border text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
-                            View
-                          </Link>
-                        ) : (
-                          <span className="text-[10px] text-muted italic">
-                            No wallet
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {tx.status === "Captured" && tx.walletId != null ? (
+                            <Link href={`/wallet-purchases/${tx.paymentId}`} className="btn btn-sm btn-secondary bg-white border-border text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
+                              View
+                            </Link>
+                          ) : (
+                            <span className="text-[10px] text-muted italic">
+                              No wallet
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td

@@ -80,8 +80,6 @@ export default function AuthGuard({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    let interval: number | undefined;
-
     /**
      * Clear countdown
      */
@@ -254,7 +252,7 @@ export default function AuthGuard({
     /**
      * Check every 5 seconds
      */
-    interval = window.setInterval(enforce, SESSION_CHECK_INTERVAL_MS);
+    const interval = window.setInterval(enforce, SESSION_CHECK_INTERVAL_MS);
 
     return () => {
       window.removeEventListener("sipsave-owner-session-expired", eventHandler);
