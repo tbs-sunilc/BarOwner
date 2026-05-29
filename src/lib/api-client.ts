@@ -555,6 +555,9 @@ export type AddBottlePayload = {
   volume750MlAvailable?: boolean;
   volume1000MlAvailable?: boolean;
   isAvailable?: boolean;
+  customBrandName?: string;
+  customProductName?: string;
+  customDefaultVolumeMl?: number;
 };
 
 export const addBottleToInventory = (

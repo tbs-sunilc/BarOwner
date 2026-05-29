@@ -120,7 +120,16 @@ export default function AddBottlePage() {
     return e;
   }, [form, sellingPriceNum, stockNum, thresholdNum]);
 
-  const canSave = picked !== null && selectedCategoryId !== null && Object.keys(formErrors).length === 0 && !submitting;
+  const [isCustom, setIsCustom] = useState(false);
+  const [customBrandName, setCustomBrandName] = useState('');
+  const [customProductName, setCustomProductName] = useState('');
+
+  const canSave =
+    picked !== null &&
+    selectedCategoryId !== null &&
+    Object.keys(formErrors).length === 0 &&
+    !submitting &&
+    (!isCustom || (customBrandName.trim() !== '' && customProductName.trim() !== ''));
 
   async function onCreateCategory() {
     if (!barId || !newCategoryName.trim() || creatingCategory) return;
@@ -141,6 +150,25 @@ export default function AddBottlePage() {
   function pickBottle(hit: BottleCatalogueSearchHit) {
     if (hit.alreadyInInventory) return;
     setPicked(hit);
+    setIsCustom(false);
+    setCustomBrandName('');
+    setCustomProductName('');
+    setSubmitError(null);
+    setForm(EMPTY_FORM);
+  }
+
+  function startCustomBottle() {
+    setIsCustom(true);
+    setCustomBrandName(searchTerm || '');
+    setCustomProductName('');
+    setPicked({
+      id: 0,
+      brandName: '',
+      productName: '',
+      category: '',
+      defaultVolumeMl: 750,
+      alreadyInInventory: false,
+    });
     setSubmitError(null);
     setForm(EMPTY_FORM);
   }
@@ -151,7 +179,7 @@ export default function AddBottlePage() {
     setSubmitError(null);
     try {
       const payload: AddBottlePayload = {
-        bottleCatalogueId:     picked.id,
+        bottleCatalogueId:     isCustom ? 0 : picked.id,
         barInventoryCategoryId: selectedCategoryId!,
         sellingPrice:          sellingPriceNum,
         costPrice:             form.costPrice ? Number(form.costPrice) : null,
@@ -160,6 +188,9 @@ export default function AddBottlePage() {
         volume750MlAvailable:  form.volume750MlAvailable,
         volume1000MlAvailable: form.volume1000MlAvailable,
         isAvailable:           form.isAvailable,
+        customBrandName:       isCustom ? customBrandName.trim() : undefined,
+        customProductName:     isCustom ? customProductName.trim() : undefined,
+        customDefaultVolumeMl: isCustom ? (form.volume750MlAvailable ? 750 : 1000) : undefined,
       };
       await addBottleToInventory(barId, payload);
       router.replace('/inventory');
@@ -246,6 +277,17 @@ export default function AddBottlePage() {
             disabled={!barId}
           />
         </div>
+        {barId && (
+          <div className="mt-2 text-right">
+            <button
+              type="button"
+              onClick={startCustomBottle}
+              className="text-xs font-semibold text-violet-600 hover:underline"
+            >
+              + Or add custom bottle directly
+            </button>
+          </div>
+        )}
 
         {searchError && (
           <p className="mt-2 text-xs text-red-600">❌ {searchError}</p>
@@ -301,20 +343,55 @@ export default function AddBottlePage() {
         )}
 
         {!searching && results.length === 0 && searchTerm.trim().length >= 2 && (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            No bottles found matching your search.{' '}
-            <strong className="underline cursor-pointer">Contact support</strong> to add a new
-            bottle to the master catalogue.
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800 flex flex-col gap-2 items-start">
+            <div>
+              No bottles found matching your search. You can create a custom bottle directly under your selected category.
+            </div>
+            <button
+              type="button"
+              onClick={startCustomBottle}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-md shadow-sm"
+            >
+              + Create Custom Bottle
+            </button>
           </div>
         )}
 
         {/* Bottle form (revealed after pick) */}
         {picked && (
           <div className="mt-5 border-t border-slate-100 pt-5">
-            <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700 mb-4">
-              ✅ <strong>{picked.brandName} — {picked.productName}</strong> selected from
-              catalogue
-            </div>
+            {isCustom ? (
+              <div className="rounded-md border border-violet-200 bg-violet-50 px-4 py-3 mb-4">
+                <p className="text-xs font-bold text-violet-800 mb-2">✨ Custom Bottle Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Brand Name *</label>
+                    <input
+                      type="text"
+                      value={customBrandName}
+                      onChange={(e) => setCustomBrandName(e.target.value)}
+                      placeholder="e.g. Kingfisher, Bro Code"
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-md text-sm bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Product Name *</label>
+                    <input
+                      type="text"
+                      value={customProductName}
+                      onChange={(e) => setCustomProductName(e.target.value)}
+                      placeholder="e.g. Ultra Max, Strong Beer"
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-md text-sm bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700 mb-4">
+                ✅ <strong>{picked.brandName} — {picked.productName}</strong> selected from
+                catalogue
+              </div>
+            )}
 
             {submitError && (
               <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
