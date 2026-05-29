@@ -57,7 +57,25 @@ export default function AddBottlePage() {
   const [results, setResults] = useState<BottleCatalogueSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  // New state for filtering bottles by category (e.g., Rum, Whiskey)
+  const [bottleCategoryFilter, setBottleCategoryFilter] = useState<string>('');
+  // Compute filtered results based on selected bottle category filter and search term
+  const filteredResults = useMemo(() => {
+    // Start from full results (either all bottles or search results)
+    let list = results;
+    // Apply category filter if set
+    if (bottleCategoryFilter) {
+      list = list.filter((r) => r.category === bottleCategoryFilter);
+    }
+    return list;
+  }, [results, bottleCategoryFilter]);
   const [picked, setPicked] = useState<BottleCatalogueSearchHit | null>(null);
+  // Compute unique categories from the current search results for filter chips
+  const bottleCategories = useMemo(() => {
+    const set = new Set<string>();
+    results.forEach((r) => r.category && set.add(r.category));
+    return Array.from(set).sort();
+  }, [results]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -67,6 +85,19 @@ export default function AddBottlePage() {
     setBarId(getActiveBarId());
   }, []);
 
+  // Load full bottle catalogue on bar load (no search term) to enable category filter before searching
+  useEffect(() => {
+    if (!barId) return;
+    const loadAll = async () => {
+      try {
+        const allHits = await searchBottleCatalogue(barId, '');
+        setResults(allHits);
+      } catch (ex) {
+        setSearchError(ex instanceof ApiError ? ex.message : 'Failed to load catalogue');
+      }
+    };
+    loadAll();
+  }, [barId]);
   useEffect(() => {
     if (!barId) return;
     listInventoryCategories(barId)
@@ -82,7 +113,17 @@ export default function AddBottlePage() {
     if (!barId) return;
     const term = searchTerm.trim();
     if (term.length < 2) {
-      setResults([]);
+      // If the search term is empty or too short, load the full catalogue (or category‑filtered list).
+      const loadAll = async () => {
+        try {
+          const allHits = await searchBottleCatalogue(barId, '');
+          setResults(allHits);
+        } catch (ex) {
+          setSearchError(ex instanceof ApiError ? ex.message : 'Failed to load catalogue');
+        }
+      };
+      loadAll();
+      setSearching(false);
       return;
     }
     const handle = window.setTimeout(async () => {
@@ -230,7 +271,12 @@ export default function AddBottlePage() {
         {categories.length > 0 ? (
           <select
             value={selectedCategoryId ?? ''}
-            onChange={(e) => setSelectedCategoryId(Number(e.target.value))}
+            onChange={(e) => {
+            const id = Number(e.target.value);
+            setSelectedCategoryId(id);
+            const cat = categories.find((c) => c.id === id)?.name ?? '';
+            setBottleCategoryFilter(cat);
+          }}
             className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-sm bg-white mb-3"
             disabled={!barId}
           >
@@ -277,6 +323,25 @@ export default function AddBottlePage() {
             disabled={!barId}
           />
         </div>
+        {bottleCategories.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {bottleCategories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setBottleCategoryFilter(cat === bottleCategoryFilter ? '' : cat)}
+                className={[
+                  'px-3 py-1 rounded-md text-xs font-medium border transition',
+                  cat === bottleCategoryFilter
+                    ? 'bg-violet-600 text-white border-violet-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-violet-300',
+                ].join(' ')}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
         {barId && (
           <div className="mt-2 text-right">
             <button
@@ -294,9 +359,9 @@ export default function AddBottlePage() {
         )}
 
         {/* Results list */}
-        {results.length > 0 && (
+        {(filteredResults.length > 0) && (
           <ul className="mt-3 rounded-md border border-slate-200 bg-slate-50 overflow-hidden">
-            {results.map((r) => (
+            {filteredResults.map((r) => (
               <li
                 key={r.id}
                 onClick={() => pickBottle(r)}
