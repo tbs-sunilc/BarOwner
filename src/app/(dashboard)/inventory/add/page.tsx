@@ -17,25 +17,14 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ApiError,
   addBottleToInventory,
+  createInventoryCategory,
+  listInventoryCategories,
   searchBottleCatalogue,
   type AddBottlePayload,
+  type BarInventoryCategory,
   type BottleCatalogueSearchHit,
 } from '@/lib/api-client';
 import { getActiveBarId } from '@/lib/active-bar';
-
-const CATEGORIES = [
-  'All',
-  'Whisky',
-  'Vodka',
-  'Rum',
-  'Gin',
-  'Tequila',
-  'Brandy',
-  'Wine',
-  'Beer',
-  'Liqueur',
-  'Other',
-] as const;
 
 type FormState = {
   sellingPrice: string;
@@ -60,8 +49,11 @@ const EMPTY_FORM: FormState = {
 export default function AddBottlePage() {
   const router = useRouter();
   const [barId, setBarId] = useState<number | null>(null);
+  const [categories, setCategories] = useState<BarInventoryCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
   const [results, setResults] = useState<BottleCatalogueSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -75,11 +67,21 @@ export default function AddBottlePage() {
     setBarId(getActiveBarId());
   }, []);
 
+  useEffect(() => {
+    if (!barId) return;
+    listInventoryCategories(barId)
+      .then((rows) => {
+        setCategories(rows);
+        if (rows.length === 1) setSelectedCategoryId(rows[0].id);
+      })
+      .catch(() => setCategories([]));
+  }, [barId]);
+
   // Debounced search.
   useEffect(() => {
     if (!barId) return;
     const term = searchTerm.trim();
-    if (term.length < 2 && category === 'All') {
+    if (term.length < 2) {
       setResults([]);
       return;
     }
@@ -87,11 +89,7 @@ export default function AddBottlePage() {
       setSearching(true);
       setSearchError(null);
       try {
-        const hits = await searchBottleCatalogue(
-          barId,
-          term,
-          category === 'All' ? undefined : category,
-        );
+        const hits = await searchBottleCatalogue(barId, term);
         setResults(hits);
       } catch (ex) {
         setSearchError(ex instanceof ApiError ? ex.message : 'Network error.');
@@ -100,7 +98,7 @@ export default function AddBottlePage() {
       }
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [barId, searchTerm, category]);
+  }, [barId, searchTerm]);
 
   // ── Form helpers ──────────────────────────────────────────────────────
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -122,7 +120,23 @@ export default function AddBottlePage() {
     return e;
   }, [form, sellingPriceNum, stockNum, thresholdNum]);
 
-  const canSave = picked !== null && Object.keys(formErrors).length === 0 && !submitting;
+  const canSave = picked !== null && selectedCategoryId !== null && Object.keys(formErrors).length === 0 && !submitting;
+
+  async function onCreateCategory() {
+    if (!barId || !newCategoryName.trim() || creatingCategory) return;
+    setCreatingCategory(true);
+    setSearchError(null);
+    try {
+      const created = await createInventoryCategory(barId, { name: newCategoryName.trim() });
+      setCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedCategoryId(created.id);
+      setNewCategoryName('');
+    } catch (ex) {
+      setSearchError(ex instanceof ApiError ? ex.message : 'Failed to create category.');
+    } finally {
+      setCreatingCategory(false);
+    }
+  }
 
   function pickBottle(hit: BottleCatalogueSearchHit) {
     if (hit.alreadyInInventory) return;
@@ -138,6 +152,7 @@ export default function AddBottlePage() {
     try {
       const payload: AddBottlePayload = {
         bottleCatalogueId:     picked.id,
+        barInventoryCategoryId: selectedCategoryId!,
         sellingPrice:          sellingPriceNum,
         costPrice:             form.costPrice ? Number(form.costPrice) : null,
         bottlesInStock:        stockNum,
@@ -176,6 +191,49 @@ export default function AddBottlePage() {
       )}
 
       <section className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-800 mb-4">Your Category *</h3>
+        <p className="text-[11px] text-slate-500 mb-3">
+          Assign this bottle to one of your bar&apos;s categories. Create new ones anytime.
+        </p>
+
+        {categories.length > 0 ? (
+          <select
+            value={selectedCategoryId ?? ''}
+            onChange={(e) => setSelectedCategoryId(Number(e.target.value))}
+            className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-sm bg-white mb-3"
+            disabled={!barId}
+          >
+            <option value="" disabled>Select category…</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+            Create your first category below before adding a bottle.
+          </p>
+        )}
+
+        <div className="flex gap-2 mb-5">
+          <input
+            type="text"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            placeholder="New category name"
+            className="flex-1 px-3 py-2 border border-slate-200 rounded-md text-sm"
+            disabled={!barId || creatingCategory}
+            onKeyDown={(e) => e.key === 'Enter' && onCreateCategory()}
+          />
+          <button
+            type="button"
+            onClick={onCreateCategory}
+            disabled={!barId || !newCategoryName.trim() || creatingCategory}
+            className="px-4 py-2 text-sm font-semibold border border-violet-200 text-violet-700 rounded-md hover:bg-violet-50 disabled:opacity-50"
+          >
+            {creatingCategory ? 'Adding…' : '+ Add Category'}
+          </button>
+        </div>
+
         <h3 className="text-sm font-bold text-slate-800 mb-4">🔍 Search Master Bottle Catalogue</h3>
 
         <div className="flex gap-2">
@@ -187,18 +245,6 @@ export default function AddBottlePage() {
             className="flex-1 px-3 py-2.5 border border-slate-200 rounded-md text-sm"
             disabled={!barId}
           />
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as (typeof CATEGORIES)[number])}
-            className="px-3 py-2.5 border border-slate-200 rounded-md text-sm bg-white"
-            disabled={!barId}
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c === 'All' ? 'All Categories' : c}
-              </option>
-            ))}
-          </select>
         </div>
 
         {searchError && (

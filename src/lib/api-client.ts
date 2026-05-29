@@ -485,6 +485,7 @@ export type InventoryItem = {
   id: number;
   barId: number;
   bottleCatalogueId: number;
+  barInventoryCategoryId: number;
   brandName: string;
   productName: string;
   category: string;
@@ -546,6 +547,7 @@ export const searchBottleCatalogue = (
 
 export type AddBottlePayload = {
   bottleCatalogueId: number;
+  barInventoryCategoryId: number;
   sellingPrice: number;
   costPrice?: number | null;
   bottlesInStock: number;
@@ -565,6 +567,7 @@ export const addBottleToInventory = (
   });
 
 export type UpdateInventoryPayload = {
+  barInventoryCategoryId: number;
   sellingPrice: number;
   costPrice?: number | null;
   bottlesInStock: number;
@@ -586,6 +589,44 @@ export const updateInventoryItem = (
 
 export const deleteInventoryItem = (id: number) =>
   request<void>(`/api/v1/inventory/${id}`, { method: "DELETE" });
+
+export type BarInventoryCategory = {
+  id: number;
+  barId: number;
+  name: string;
+  displayOrder: number;
+  bottleCount: number;
+};
+
+export const listInventoryCategories = (barId: number) =>
+  request<BarInventoryCategory[]>(`/api/v1/bars/${barId}/inventory/categories`);
+
+export const createInventoryCategory = (
+  barId: number,
+  payload: { name: string; displayOrder?: number },
+) =>
+  request<BarInventoryCategory>(`/api/v1/bars/${barId}/inventory/categories`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const updateInventoryCategory = (
+  barId: number,
+  categoryId: number,
+  payload: { name: string; displayOrder?: number },
+) =>
+  request<BarInventoryCategory>(
+    `/api/v1/bars/${barId}/inventory/categories/${categoryId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
+
+export const deleteInventoryCategory = (barId: number, categoryId: number) =>
+  request<void>(`/api/v1/bars/${barId}/inventory/categories/${categoryId}`, {
+    method: "DELETE",
+  });
 
 // ---------------------------------------------------------------------------
 //  Phase 5 — Sessions & Pour Requests (bartender-tablet surface)

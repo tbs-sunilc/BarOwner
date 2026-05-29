@@ -9,7 +9,7 @@
  * Filters:
  *   • Free-text search across brand + product names (client-side; backend supports
  *     server-side filtering when the catalogue grows beyond a screen).
- *   • Category dropdown reads the distinct categories from the loaded rows.
+ *   • Category dropdown uses bar-owner categories from GET .../inventory/categories.
  */
 
 import Link from 'next/link';
@@ -18,11 +18,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ApiError,
   listInventory,
+  listInventoryCategories,
   setInventoryAvailability,
+  type BarInventoryCategory,
   type InventoryItem,
 } from '@/lib/api-client';
 import { getActiveBarId, setActiveBarId } from '@/lib/active-bar';
 import { EditBottleModal } from '@/components/inventory/EditBottleModal';
+import { ManageCategoriesModal } from '@/components/inventory/ManageCategoriesModal';
 
 export default function InventoryPage() {
   const searchParams = useSearchParams();
@@ -33,6 +36,8 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState<string>('All');
+  const [barCategories, setBarCategories] = useState<BarInventoryCategory[]>([]);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [pendingToggleId, setPendingToggleId] = useState<number | null>(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
 
@@ -57,8 +62,12 @@ export default function InventoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listInventory(barId, true);
+      const [rows, categories] = await Promise.all([
+        listInventory(barId, true),
+        listInventoryCategories(barId),
+      ]);
       setItems(rows);
+      setBarCategories(categories);
     } catch (ex) {
       setError(ex instanceof ApiError ? ex.message : 'Network error.');
     } finally {
@@ -80,9 +89,11 @@ export default function InventoryPage() {
 
   // ── Filtering ─────────────────────────────────────────────────────────
   const categories = useMemo(() => {
-    const set = new Set(items.map((i) => i.category));
-    return ['All', ...Array.from(set).sort()];
-  }, [items]);
+    const names = barCategories.length > 0
+      ? barCategories.map((c) => c.name)
+      : Array.from(new Set(items.map((i) => i.category)));
+    return ['All', ...names.sort()];
+  }, [barCategories, items]);
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -149,6 +160,14 @@ export default function InventoryPage() {
           <p className="text-xs text-slate-500">Physical stock vs. wallet commitments</p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-md hover:bg-white"
+            onClick={() => setCategoriesOpen(true)}
+            disabled={!barId}
+          >
+            Manage Categories
+          </button>
           <button
             type="button"
             className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-md hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
@@ -284,10 +303,18 @@ export default function InventoryPage() {
 
       <EditBottleModal
         item={selectedItem}
+        categories={barCategories}
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onUpdated={onModalUpdated}
         onDeleted={onModalDeleted}
+      />
+
+      <ManageCategoriesModal
+        barId={barId}
+        isOpen={categoriesOpen}
+        onClose={() => setCategoriesOpen(false)}
+        onChanged={refresh}
       />
     </div>
   );

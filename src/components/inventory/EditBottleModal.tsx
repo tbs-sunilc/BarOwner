@@ -23,19 +23,21 @@ import {
   ApiError,
   deleteInventoryItem,
   updateInventoryItem,
+  type BarInventoryCategory,
   type InventoryItem,
   type UpdateInventoryPayload,
 } from '@/lib/api-client';
 
 type Props = {
   item: InventoryItem | null;
+  categories: BarInventoryCategory[];
   isOpen: boolean;
   onClose: () => void;
   onUpdated: (item: InventoryItem) => void;
   onDeleted: () => void;
 };
 
-export function EditBottleModal({ item, isOpen, onClose, onUpdated, onDeleted }: Props) {
+export function EditBottleModal({ item, categories, isOpen, onClose, onUpdated, onDeleted }: Props) {
   // We cache the modal's working copy of `item` so the form keeps a coherent state
   // across the briefly-empty render that follows `onClose()`.
   const [draft, setDraft] = useState<InventoryItem | null>(item);
@@ -46,6 +48,7 @@ export function EditBottleModal({ item, isOpen, onClose, onUpdated, onDeleted }:
   const [v750, setV750] = useState(true);
   const [v1000, setV1000] = useState(false);
   const [isAvailable, setIsAvailable] = useState(true);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [stockChangeReason, setStockChangeReason] = useState('');
 
   const [busy, setBusy] = useState(false);
@@ -62,6 +65,7 @@ export function EditBottleModal({ item, isOpen, onClose, onUpdated, onDeleted }:
     setV750(item.volume750MlAvailable);
     setV1000(item.volume1000MlAvailable);
     setIsAvailable(item.isAvailable);
+    setCategoryId(item.barInventoryCategoryId);
     setStockChangeReason('');
     setErrorMessage(null);
     setConfirmingDelete(false);
@@ -89,10 +93,11 @@ export function EditBottleModal({ item, isOpen, onClose, onUpdated, onDeleted }:
     if (!Number.isFinite(stockNum) || stockNum < 0) e.bottlesInStock = 'Stock must be 0 or more.';
     if (!Number.isFinite(thresholdNum) || thresholdNum < 0) e.lowStockThreshold = 'Threshold must be 0 or more.';
     if (!v750 && !v1000) e.volumes = 'Pick at least one volume.';
+    if (!categoryId) e.category = 'Select a category.';
     if (stockChanged && stockChangeReason.trim().length === 0)
       e.stockChangeReason = 'Add a short reason — every stock change writes to the audit log.';
     return e;
-  }, [sellingPriceNum, costPrice, stockNum, thresholdNum, v750, v1000, stockChanged, stockChangeReason]);
+  }, [sellingPriceNum, costPrice, stockNum, thresholdNum, v750, v1000, categoryId, stockChanged, stockChangeReason]);
 
   const canSave = draft !== null && Object.keys(errors).length === 0 && !busy;
 
@@ -104,6 +109,7 @@ export function EditBottleModal({ item, isOpen, onClose, onUpdated, onDeleted }:
     setErrorMessage(null);
     try {
       const payload: UpdateInventoryPayload = {
+        barInventoryCategoryId: categoryId!,
         sellingPrice:          sellingPriceNum,
         costPrice:             costPrice ? Number(costPrice) : null,
         bottlesInStock:        stockNum,
@@ -180,6 +186,25 @@ export function EditBottleModal({ item, isOpen, onClose, onUpdated, onDeleted }:
               ❌ {errorMessage}
             </div>
           )}
+
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-slate-700">Your Category *</label>
+            <select
+              value={categoryId ?? ''}
+              onChange={(e) => setCategoryId(Number(e.target.value))}
+              className={[
+                'mt-1 w-full px-3 py-2.5 border rounded-md text-sm bg-white',
+                errors.category ? 'border-red-400' : 'border-slate-200 focus:border-violet-500',
+                'focus:outline-none focus:ring-1 focus:ring-violet-500',
+              ].join(' ')}
+            >
+              <option value="" disabled>Select category…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {errors.category && <p className="mt-1 text-[11px] text-red-600">{errors.category}</p>}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <NumField
