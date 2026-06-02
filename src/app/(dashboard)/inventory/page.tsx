@@ -13,21 +13,23 @@
  */
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ApiError,
+  getBarDetails,
   listInventory,
   listInventoryCategories,
   setInventoryAvailability,
   type BarInventoryCategory,
   type InventoryItem,
 } from '@/lib/api-client';
-import { getActiveBarId, setActiveBarId } from '@/lib/active-bar';
+import { getActiveBarId, setActiveBarDetails, setActiveBarId } from '@/lib/active-bar';
 import { EditBottleModal } from '@/components/inventory/EditBottleModal';
 import { ManageCategoriesModal } from '@/components/inventory/ManageCategoriesModal';
 
 export default function InventoryPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [barId, setBarId] = useState<number | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -35,27 +37,52 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [category, setCategory] = useState<string>('All');
+  const [categoryId, setCategoryId] = useState<number | 'All'>('All');
   const [barCategories, setBarCategories] = useState<BarInventoryCategory[]>([]);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [pendingToggleId, setPendingToggleId] = useState<number | null>(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
 
-  // Resolve active bar from URL or sessionStorage; persist URL → storage so refresh works.
+  // Resolve active bar from token (owner session). Keep URL/storage as fallback for demos.
   useEffect(() => {
-    const fromUrl = searchParams.get('barId');
-    if (fromUrl) {
-      const n = Number(fromUrl);
-      if (Number.isFinite(n) && n > 0) {
-        setActiveBarId(n);
-        setBarId(n);
+    let canceled = false;
+
+    async function init() {
+      setLoading(true);
+      setError(null);
+      try {
+        const bar = await getBarDetails();
+        if (canceled) return;
+        setActiveBarDetails(bar);
+        setBarId(bar.barId);
         return;
+      } catch (ex) {
+        if (canceled) return;
+        if (ex instanceof ApiError && ex.status === 401) {
+          router.replace('/login');
+          return;
+        }
+        // Fallback: allow demo mode via URL/storage when backend details aren't available.
+        const fromUrl = searchParams.get('barId');
+        if (fromUrl) {
+          const n = Number(fromUrl);
+          if (Number.isFinite(n) && n > 0) {
+            setActiveBarId(n);
+            setBarId(n);
+            return;
+          }
+        }
+        const fromStorage = getActiveBarId();
+        if (fromStorage) setBarId(fromStorage);
+        else setLoading(false);
       }
     }
-    const fromStorage = getActiveBarId();
-    if (fromStorage) setBarId(fromStorage);
-    else setLoading(false);
-  }, [searchParams]);
+
+    void init();
+    return () => {
+      canceled = true;
+    };
+  }, [router, searchParams]);
 
   const refresh = useCallback(async () => {
     if (!barId) return;
@@ -88,21 +115,28 @@ export default function InventoryPage() {
   const skuCount = items.length;
 
   // ── Filtering ─────────────────────────────────────────────────────────
-  const categories = useMemo(() => {
-    const names = barCategories.length > 0
-      ? barCategories.map((c) => c.name)
-      : Array.from(new Set(items.map((i) => i.category)));
-    return ['All', ...names.sort()];
-  }, [barCategories, items]);
+  const categoryNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const c of barCategories) map.set(c.id, c.name);
+    return map;
+  }, [barCategories]);
+
+  const categoryOptions = useMemo(() => {
+    const sorted = [...barCategories].sort((a, b) => a.name.localeCompare(b.name));
+    return [
+      { id: 'All' as const, label: 'All Categories' },
+      ...sorted.map((c) => ({ id: c.id, label: c.name })),
+    ];
+  }, [barCategories]);
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return items.filter((i) => {
-      if (category !== 'All' && i.category !== category) return false;
+      if (categoryId !== 'All' && i.barInventoryCategoryId !== categoryId) return false;
       if (term && !`${i.brandName} ${i.productName}`.toLowerCase().includes(term)) return false;
       return true;
     });
-  }, [items, searchTerm, category]);
+  }, [items, searchTerm, categoryId]);
 
   // ── Availability toggle (optimistic) ──────────────────────────────────
   async function onToggleAvailability(item: InventoryItem) {
@@ -244,13 +278,16 @@ export default function InventoryPage() {
               className="px-3 py-1.5 text-sm border border-slate-200 rounded-md w-52"
             />
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              value={categoryId === 'All' ? 'All' : String(categoryId)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCategoryId(v === 'All' ? 'All' : Number(v));
+              }}
               className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white"
             >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c === 'All' ? 'All Categories' : c}
+              {categoryOptions.map((c) => (
+                <option key={String(c.id)} value={String(c.id)}>
+                  {c.label}
                 </option>
               ))}
             </select>
@@ -294,6 +331,7 @@ export default function InventoryPage() {
                     pendingToggle={pendingToggleId === item.id}
                     onToggle={() => onToggleAvailability(item)}
                     onEdit={() => onEdit(item)}
+                    categoryNameById={categoryNameById}
                   />
                 ))}
             </tbody>
@@ -370,11 +408,13 @@ function Th({
 
 function InventoryRow({
   item,
+  categoryNameById,
   pendingToggle,
   onToggle,
   onEdit,
 }: {
   item: InventoryItem;
+  categoryNameById: Map<number, string>;
   pendingToggle: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -408,7 +448,12 @@ function InventoryRow({
           {item.subCategory ? ` · ${item.subCategory}` : ''}
         </div>
       </td>
-      <td className="px-3 py-2.5">{item.category}</td>
+      <td className="px-3 py-2.5">
+        <div className="font-medium text-slate-800">
+          {categoryNameById.get(item.barInventoryCategoryId) ?? '—'}
+        </div>
+        <div className="text-[11px] text-slate-400">{item.category}</div>
+      </td>
       <td className="px-3 py-2.5 text-right font-semibold text-violet-700">
         ₹{item.sellingPrice.toLocaleString('en-IN')}
       </td>

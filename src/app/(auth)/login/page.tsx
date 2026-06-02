@@ -627,8 +627,13 @@ function persistOwnerSession(response: VerifyOtpResponse): void {
       "sipsave-barowner-full-name",
       response.user.fullName,
     );
-  if (response.user.barId && response.user.barId > 0)
+  if (response.user.barId && response.user.barId > 0) {
+    // Ensure active bar matches the logged-in owner.
     setActiveBarId(response.user.barId);
+  } else {
+    // Prevent stale barId leaking across owner logins.
+    clearActiveBarId();
+  }
 }
 
 function persistStaffSession(response: StaffLoginResponse): void {
@@ -652,6 +657,7 @@ function persistStaffSession(response: StaffLoginResponse): void {
   if (response.fullName)
     window.sessionStorage.setItem("sipsave-staff-full-name", response.fullName);
   if (response.barId && response.barId > 0) setActiveBarId(response.barId);
+  else clearActiveBarId();
 }
 
 function persistBarDetails(bar: BarDetails): void {

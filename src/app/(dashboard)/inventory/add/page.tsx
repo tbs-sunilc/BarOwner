@@ -18,13 +18,14 @@ import {
   ApiError,
   addBottleToInventory,
   createInventoryCategory,
+  getBarDetails,
   listInventoryCategories,
   searchBottleCatalogue,
   type AddBottlePayload,
   type BarInventoryCategory,
   type BottleCatalogueSearchHit,
 } from '@/lib/api-client';
-import { getActiveBarId } from '@/lib/active-bar';
+import { getActiveBarId, setActiveBarDetails } from '@/lib/active-bar';
 
 type FormState = {
   sellingPrice: string;
@@ -65,9 +66,24 @@ export default function AddBottlePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Resolve active bar id (URL → sessionStorage). Same pattern as SC-08.
+  // Resolve active bar from token (owner session). Keep storage fallback for demos.
   useEffect(() => {
-    setBarId(getActiveBarId());
+    let canceled = false;
+    const init = async () => {
+      try {
+        const bar = await getBarDetails();
+        if (canceled) return;
+        setActiveBarDetails(bar);
+        setBarId(bar.barId);
+      } catch {
+        if (canceled) return;
+        setBarId(getActiveBarId());
+      }
+    };
+    void init();
+    return () => {
+      canceled = true;
+    };
   }, []);
 
   // Load full bottle catalogue on bar load (no search term) to enable category filter before searching
