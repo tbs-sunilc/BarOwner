@@ -75,7 +75,7 @@ export default function WalletPurchasesPage() {
                       {formatInr(row.amountInPaise)}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{row.paymentMethod || '-'}</td>
-                    <td className="px-4 py-3 text-slate-600">{formatDateTime(row.capturedAtUtc ?? row.createdAtUtc)}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.capturedAtUtc ? formatDateTime(row.capturedAtUtc) : '-'}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={row.status} />
                     </td>
@@ -105,7 +105,11 @@ export default function WalletPurchasesPage() {
 function StatusBadge({ status }: { status: string }) {
   const cls = status === 'Captured'
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : 'bg-rose-50 text-rose-700 border-rose-200';
+    : status === 'Consumed'
+      ? 'bg-slate-100 text-slate-700 border-slate-200'
+      : status === 'Payment Pending'
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-rose-50 text-rose-700 border-rose-200';
   return <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${cls}`}>{status}</span>;
 }
 
