@@ -1174,12 +1174,29 @@ export type CreateStaffPayload = {
   role: "Manager" | "Bartender";
 };
 
+export type UpdateStaffPayload = {
+  fullName: string;
+  mobileNumber: string;
+  email?: string | null;
+  role: "Manager" | "Bartender";
+  password?: string | null;
+};
+
 export const listStaff = (barId: number) =>
   request<StaffRowDto[]>(`/api/v1/bars/${barId}/staff`);
 
 export const createStaff = (barId: number, payload: CreateStaffPayload) =>
   request<StaffRowDto>(`/api/v1/bars/${barId}/staff`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const getStaffById = (staffId: number) =>
+  request<StaffRowDto>(`/api/v1/staff/${staffId}`);
+
+export const updateStaff = (staffId: number, payload: UpdateStaffPayload) =>
+  request<StaffRowDto>(`/api/v1/staff/${staffId}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 
