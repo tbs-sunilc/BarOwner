@@ -615,21 +615,15 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`status-pill ${tx.status === "Captured" ? "status-success" : "status-danger opacity-80"}`}
+                            className={`status-pill ${walletPurchaseStatusClass(tx.status)}`}
                           >
-                            {tx.status === "Captured" ? "Captured" : "Failed"}
+                            {walletPurchaseStatusLabel(tx.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          {tx.status === "Captured" && tx.walletId != null ? (
-                            <Link href={`/wallet-purchases/${tx.paymentId}`} className="btn btn-sm btn-secondary bg-white border-border text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
-                              View
-                            </Link>
-                          ) : (
-                            <span className="text-[10px] text-muted italic">
-                              No wallet
-                            </span>
-                          )}
+                          <Link href={`/wallet-purchases/${tx.paymentId}`} className="btn btn-sm btn-secondary bg-white border-border text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
+                            View
+                          </Link>
                         </td>
                       </tr>
                     );
@@ -863,6 +857,17 @@ function getUserColor(id: number) {
     "bg-violet-600",
   ];
   return colors[id % colors.length];
+}
+
+function walletPurchaseStatusLabel(status: string) {
+  return status || "-";
+}
+
+function walletPurchaseStatusClass(status: string) {
+  if (status === "Captured") return "status-success";
+  if (status === "Consumed") return "bg-slate-100 text-slate-700 border border-slate-200";
+  if (status === "Payment Pending") return "bg-amber-50 text-amber-700 border border-amber-200";
+  return "status-danger opacity-80";
 }
 
 function escapeHtml(value: string) {
