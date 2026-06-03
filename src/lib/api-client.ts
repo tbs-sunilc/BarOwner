@@ -1172,6 +1172,7 @@ export type CreateStaffPayload = {
   email?: string | null;
   password: string;
   role: "Manager" | "Bartender";
+  sendEmail?: boolean;
 };
 
 export type UpdateStaffPayload = {
@@ -1180,6 +1181,7 @@ export type UpdateStaffPayload = {
   email?: string | null;
   role: "Manager" | "Bartender";
   password?: string | null;
+  sendEmail?: boolean;
 };
 
 export const listStaff = (barId: number) =>

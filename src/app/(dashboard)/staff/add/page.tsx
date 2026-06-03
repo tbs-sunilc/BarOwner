@@ -53,15 +53,17 @@ export default function AddStaffPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('Bartender');
+  const [sendEmail, setSendEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const warning = useMemo(() => {
     if (!fullName.trim()) return 'Enter the staff member\'s full name.';
     if (!/^[\+]?[0-9]{10,15}$/.test(mobile.replace(/\s/g, ''))) return 'Enter a valid mobile number.';
+    if (sendEmail && !email.trim()) return 'Enter the staff member\'s email to send the notification.';
     if (password.length < 8) return 'Password must be at least 8 characters.';
     return null;
-  }, [fullName, mobile, password]);
+  }, [fullName, mobile, email, password, sendEmail]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,6 +77,7 @@ export default function AddStaffPage() {
       email: email.trim() || null,
       password,
       role,
+      sendEmail,
     };
 
     setSubmitting(true);
@@ -114,6 +117,18 @@ export default function AddStaffPage() {
           <Field label="Email (optional)">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200}
                    className="w-full rounded-lg border-slate-300 text-sm" />
+            <div className="mt-3 flex items-center gap-3">
+              <input
+                id="sendEmail"
+                type="checkbox"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-violet-600"
+              />
+              <label htmlFor="sendEmail" className="text-sm text-slate-700">
+                Send staff login details by email
+              </label>
+            </div>
           </Field>
 
           <Field label="Starter password">

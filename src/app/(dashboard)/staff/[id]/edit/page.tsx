@@ -22,6 +22,7 @@ export default function EditStaffPage() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<StaffRowDto['role']>('Bartender');
   const [password, setPassword] = useState('');
+  const [sendEmail, setSendEmail] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +50,11 @@ export default function EditStaffPage() {
   const warning = useMemo(() => {
     if (!fullName.trim()) return 'Enter the staff member\'s full name.';
     if (!/^[\+]?\d{10,15}$/.test(mobile.replace(/\s/g, ''))) return 'Enter a valid mobile number.';
+    if (sendEmail && !email.trim()) return 'Enter the staff member\'s email to send the notification.';
+    if (sendEmail && !password.trim()) return 'Enter a password to send login details by email.';
     if (password && password.length < 8) return 'Password must be at least 8 characters.';
     return null;
-  }, [fullName, mobile, password]);
+  }, [fullName, mobile, email, password, sendEmail]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,6 +67,7 @@ export default function EditStaffPage() {
       email: email.trim() || null,
       role,
       password: password.trim() || undefined,
+      sendEmail,
     };
 
     setSubmitting(true);
@@ -122,6 +126,18 @@ export default function EditStaffPage() {
                 maxLength={200}
                 className="w-full rounded-lg border-slate-300 text-sm"
               />
+              <div className="mt-3 flex items-center gap-3">
+                <input
+                  id="sendEmail"
+                  type="checkbox"
+                  checked={sendEmail}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-violet-600"
+                />
+                <label htmlFor="sendEmail" className="text-sm text-slate-700">
+                  Send staff login details by email
+                </label>
+              </div>
             </Field>
 
             <Field label="Role">
