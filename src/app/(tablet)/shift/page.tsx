@@ -3,32 +3,148 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getTabletState, TabletState, resetTabletState } from '@/lib/tablet-state';
-import { clearStaffSession } from '@/lib/staff-session';
+import { getActiveBarId } from '@/lib/active-bar';
+import { getTabletState, saveTabletState, TabletState, resetTabletState, fetchLiveTableStatus } from '@/lib/tablet-state';
+import { fetchPourQueue, fetchServedTonight, listStaff, type StaffRowDto } from '@/lib/api-client';
+import { applyPourApiToState } from '@/lib/pour-dashboard';
+import { clearStaffSession, STAFF_NAME_KEY } from '@/lib/staff-session';
+
+function parseShiftStartTime(shiftStart: string) {
+  const now = new Date();
+  const [timePart, meridiem] = shiftStart.trim().split(' ');
+  const [hourStr, minStr] = timePart?.split(':') || ['0', '0'];
+  let hour = Number(hourStr) || 0;
+  const minute = Number(minStr) || 0;
+  if (meridiem?.toUpperCase() === 'PM' && hour < 12) hour += 12;
+  if (meridiem?.toUpperCase() === 'AM' && hour === 12) hour = 0;
+
+  const shiftDate = new Date(now);
+  shiftDate.setHours(hour, minute, 0, 0);
+
+  if (shiftDate.getTime() > now.getTime()) {
+    shiftDate.setDate(shiftDate.getDate() - 1);
+  }
+
+  return shiftDate;
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatDuration(ms: number) {
+  const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
 
 export default function ShiftSummaryPage() {
   const router = useRouter();
   const [state, setState] = useState<TabletState | null>(null);
   const [notes, setNotes] = useState('');
-  const [handoverTo, setHandoverTo] = useState('Sneha Patel');
+  const [handoverTo, setHandoverTo] = useState('');
+  const [staffOptions, setStaffOptions] = useState<StaffRowDto[]>([]);
   const [ending, setEnding] = useState(false);
   const [showAllLogs, setShowAllLogs] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
   useEffect(() => {
-    setState(getTabletState());
+    const loadShiftData = async () => {
+      let saved = getTabletState();
+      if (typeof window !== 'undefined') {
+        const staffName = window.sessionStorage.getItem(STAFF_NAME_KEY);
+        if (staffName) {
+          saved = {
+            ...saved,
+            currentBartender: {
+              ...saved.currentBartender,
+              name: staffName,
+            },
+          };
+        }
+      }
+
+      setState(saved);
+      setNotes(saved.handoverNotes || '');
+
+      const barId = getActiveBarId();
+      if (!barId) {
+        setServerStatus('offline');
+        return;
+      }
+
+      try {
+        const [liveTables, pendingQueue, servedTonight, staff] = await Promise.all([
+          fetchLiveTableStatus(barId),
+          fetchPourQueue(barId),
+          fetchServedTonight(barId, 100),
+          listStaff(barId),
+        ]);
+
+        const nextState = applyPourApiToState(
+          { ...saved, tables: liveTables },
+          pendingQueue,
+          servedTonight,
+        );
+
+        saveTabletState(nextState);
+        setState(nextState);
+
+        const activeStaff = staff.filter((person) => person.isActive);
+        const staffList = activeStaff.length > 0 ? activeStaff : staff;
+        setStaffOptions(staffList);
+
+        if (staffList.length > 0) {
+          const selected = staffList.find((person) => person.fullName === handoverTo);
+          setHandoverTo(selected?.fullName ?? staffList[0].fullName);
+        }
+
+        setServerStatus('online');
+      } catch (error) {
+        console.error('[ShiftSummaryPage] dynamic load failed:', error);
+        setServerStatus('offline');
+      }
+    };
+
+    void loadShiftData();
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotesChange = (value: string) => {
+    setNotes(value);
+    setState((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, handoverNotes: value };
+      saveTabletState(next);
+      return next;
+    });
+  };
+
+  const updateHandoverTo = (value: string) => {
+    setHandoverTo(value);
+  };
 
   if (!state) {
     return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading shift summary...</div>;
   }
 
   const activeTablesCount = state.tables.filter(t => t.status !== 'available').length;
+  const shiftStartTime = parseShiftStartTime(state.currentBartender.shiftStart);
+  const shiftDurationText = formatDuration(currentTime.getTime() - shiftStartTime.getTime());
+  const timelineText = `${state.currentBartender.shiftStart} — ${formatTime(currentTime)}`;
 
   const handleEndShift = () => {
     setEnding(true);
     
     if ((window as any).toast) {
-      (window as any).toast('Shift ended. Log saved. Signed out.', 's');
+      (window as any).toast(`Shift ended. Handover saved and signed out — transferred to ${handoverTo}.`, 's');
     }
 
     setTimeout(() => {
@@ -81,8 +197,8 @@ export default function ShiftSummaryPage() {
             <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Logged Bartender</p>
             <h2 className="text-2xl text-white tracking-tighter">{state.currentBartender.name}</h2>
             <div className="flex gap-4 mt-4 text-xs font-bold text-indigo-200">
-              <span className="bg-white/10 px-3 py-1 rounded-xl">Timeline: 6:00 PM - 11:41 PM</span>
-              <span className="bg-white/10 px-3 py-1 rounded-xl">Duration: 5h 41m</span>
+              <span className="bg-white/10 px-3 py-1 rounded-xl">Timeline: {timelineText}</span>
+              <span className="bg-white/10 px-3 py-1 rounded-xl">Duration: {shiftDurationText}</span>
             </div>
           </div>
 
@@ -140,11 +256,18 @@ export default function ShiftSummaryPage() {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Handover To *</label>
               <select
                 value={handoverTo}
-                onChange={(e) => setHandoverTo(e.target.value)}
+                onChange={(e) => updateHandoverTo(e.target.value)}
                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold text-sm outline-none focus:border-indigo-500 transition-all cursor-pointer shadow-sm"
               >
-                <option value="Sneha Patel">Sneha Patel (Bartender - Evening Shift)</option>
-                <option value="Amit Kumar">Amit Kumar (Manager)</option>
+                {staffOptions.length > 0 ? (
+                  staffOptions.map((person) => (
+                    <option key={person.id} value={person.fullName}>
+                      {person.fullName} ({person.role})
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Loading staff...</option>
+                )}
               </select>
             </div>
 
@@ -153,7 +276,7 @@ export default function ShiftSummaryPage() {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Handover Notes for Next Shift</label>
               <textarea
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => handleNotesChange(e.target.value)}
                 placeholder="e.g. Table 4 asked for separate bills. Absolut Vodka needs restocking."
                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 text-sm font-bold focus:border-indigo-500 outline-none transition-all h-32 shadow-sm"
               />
@@ -186,7 +309,7 @@ export default function ShiftSummaryPage() {
             </div>
 
             <p className="text-center text-[9px] text-slate-300 font-black uppercase mt-6 tracking-[0.2em]">
-              Terminal ID: TERM-T10A · Server Confirmed
+              Terminal ID: {state.currentBartender.id} · {serverStatus === 'online' ? 'Server Confirmed' : serverStatus === 'checking' ? 'Checking server...' : 'Offline Mode'}
             </p>
           </div>
         </div>
