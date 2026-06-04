@@ -7,7 +7,7 @@ import { getActiveBarId } from '@/lib/active-bar';
 import { getTabletState, saveTabletState, TabletState, resetTabletState, fetchLiveTableStatus } from '@/lib/tablet-state';
 import { fetchPourQueue, fetchServedTonight, listStaff, type StaffRowDto } from '@/lib/api-client';
 import { applyPourApiToState } from '@/lib/pour-dashboard';
-import { clearStaffSession, STAFF_NAME_KEY } from '@/lib/staff-session';
+import { clearStaffSession, STAFF_NAME_KEY, STAFF_USER_KEY } from '@/lib/staff-session';
 
 function parseShiftStartTime(shiftStart: string) {
   const now = new Date();
@@ -56,15 +56,44 @@ export default function ShiftSummaryPage() {
       let saved = getTabletState();
       if (typeof window !== 'undefined') {
         const staffName = window.sessionStorage.getItem(STAFF_NAME_KEY);
-        if (staffName) {
-          saved = {
-            ...saved,
-            currentBartender: {
-              ...saved.currentBartender,
-              name: staffName,
-            },
-          };
+        const staffUserRaw = window.sessionStorage.getItem(STAFF_USER_KEY);
+        let staffId = saved.currentBartender.id;
+
+        if (staffUserRaw) {
+          try {
+            const staffUser = JSON.parse(staffUserRaw) as { id?: number; fullName?: string };
+            if (staffUser.id != null) {
+              staffId = String(staffUser.id);
+            }
+            if (staffUser.fullName) {
+              saved = {
+                ...saved,
+                currentBartender: {
+                  ...saved.currentBartender,
+                  name: staffUser.fullName,
+                },
+              };
+            }
+          } catch {
+            // ignore invalid staff session payload
+          }
         }
+
+        const now = new Date();
+        const currentShiftStart = saved.currentBartender.shiftStart?.trim();
+        const shiftStartValue =
+          !currentShiftStart || currentShiftStart === '6:00 PM'
+            ? formatTime(now)
+            : currentShiftStart;
+
+        saved = {
+          ...saved,
+          currentBartender: {
+            ...saved.currentBartender,
+            id: staffId,
+            shiftStart: shiftStartValue,
+          },
+        };
       }
 
       setState(saved);
