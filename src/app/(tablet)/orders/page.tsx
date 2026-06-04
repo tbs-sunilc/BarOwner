@@ -47,7 +47,7 @@ export default function FoodOrdersPage() {
     return () => { mounted = false; };
   }, []);
 
-  if (!state) {
+  if (!state || !Array.isArray(state.foodOrders)) {
     return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading orders...</div>;
   }
 
