@@ -1187,6 +1187,20 @@ export type UpdateStaffPayload = {
 export const listStaff = (barId: number) =>
   request<StaffRowDto[]>(`/api/v1/bars/${barId}/staff`);
 
+export type ShiftHandoverPayload = {
+  bartenderId?: number | null;
+  handoverToStaffId?: number | null;
+  handoverToName?: string | null;
+  notes?: string | null;
+  barId?: number | null;
+};
+
+export const postShiftHandover = (payload: ShiftHandoverPayload) =>
+  request<ShiftHandoverPayload>(`/api/v1/shifts/handover`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
 export const createStaff = (barId: number, payload: CreateStaffPayload) =>
   request<StaffRowDto>(`/api/v1/bars/${barId}/staff`, {
     method: "POST",

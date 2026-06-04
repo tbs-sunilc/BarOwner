@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getActiveBarId } from '@/lib/active-bar';
 import { getTabletState, saveTabletState, TabletState, resetTabletState, fetchLiveTableStatus } from '@/lib/tablet-state';
-import { fetchPourQueue, fetchServedTonight, listStaff, type StaffRowDto } from '@/lib/api-client';
+import { fetchPourQueue, fetchServedTonight, listStaff, postShiftHandover, type StaffRowDto } from '@/lib/api-client';
 import { applyPourApiToState } from '@/lib/pour-dashboard';
 import { clearStaffSession, STAFF_NAME_KEY, STAFF_USER_KEY } from '@/lib/staff-session';
 
@@ -156,6 +156,29 @@ export default function ShiftSummaryPage() {
     });
   };
 
+  // Debounced save to backend when notes or handover target changes
+  useEffect(() => {
+    if (!state) return;
+    const barId = getActiveBarId();
+    const timeout = setTimeout(async () => {
+      try {
+        const toStaff = staffOptions.find(s => s.fullName === handoverTo);
+        await postShiftHandover({
+          bartenderId: Number(state.currentBartender.id) || undefined,
+          handoverToStaffId: toStaff?.id ?? undefined,
+          handoverToName: handoverTo || undefined,
+          notes: notes || undefined,
+          barId: barId ?? undefined,
+        });
+        (window as any).toast?.('Handover saved to server', 's');
+      } catch (err) {
+        console.warn('Failed to save handover to server', err);
+        (window as any).toast?.('Saving handover failed (offline)', 'w');
+      }
+    }, 800);
+    return () => clearTimeout(timeout);
+  }, [notes, handoverTo, state]);
+
   const updateHandoverTo = (value: string) => {
     setHandoverTo(value);
   };
@@ -171,16 +194,28 @@ export default function ShiftSummaryPage() {
 
   const handleEndShift = () => {
     setEnding(true);
-    
-    if ((window as any).toast) {
-      (window as any).toast(`Shift ended. Handover saved and signed out — transferred to ${handoverTo}.`, 's');
-    }
-
-    setTimeout(() => {
-      clearStaffSession();
-      resetTabletState();
-      router.push('/login?staff=1');
-    }, 800);
+    (async () => {
+      try {
+        const toStaff = staffOptions.find(s => s.fullName === handoverTo);
+        await postShiftHandover({
+          bartenderId: Number(state?.currentBartender.id) || undefined,
+          handoverToStaffId: toStaff?.id ?? undefined,
+          handoverToName: handoverTo || undefined,
+          notes: notes || undefined,
+          barId: getActiveBarId() ?? undefined,
+        });
+        (window as any).toast?.(`Shift ended. Handover saved and signed out — transferred to ${handoverTo}.`, 's');
+      } catch (err) {
+        console.warn('End-shift handover save failed', err);
+        (window as any).toast?.('Shift ended (handover save failed, stored locally)', 'w');
+      } finally {
+        setTimeout(() => {
+          clearStaffSession();
+          resetTabletState();
+          router.push('/login?staff=1');
+        }, 800);
+      }
+    })();
   };
 
   const handleSkipNotes = () => {
