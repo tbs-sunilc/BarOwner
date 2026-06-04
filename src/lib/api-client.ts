@@ -704,6 +704,25 @@ export const fetchServedTonight = (barId: number, take = 50) =>
 export const fetchPourRequest = (id: number) =>
   request<PourRequestDto>(`/api/v1/pour-requests/${id}`);
 
+export type FoodOrderItemDto = {
+  name: string;
+  qty: number;
+  price: number; // rupees
+};
+
+export type FoodOrderDto = {
+  id: number;
+  tableId?: number | null;
+  customer?: string | null;
+  timeLabel: string;
+  status: 'Pending' | 'In preparation' | 'Served' | string;
+  items: FoodOrderItemDto[];
+  total: number; // rupees
+};
+
+export const fetchActiveFoodOrders = (barId: number) =>
+  request<FoodOrderDto[]>(`/api/orders?barId=${barId}`);
+
 export const servePourRequest = (
   id: number,
   servedMl: number,
