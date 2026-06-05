@@ -8,6 +8,7 @@
  * render the submit button's banner from the 400 response ("A Happy Hour 'X'
  * already runs in that time window.") rather than trying to duplicate the
  * overlap query on the client.
+ * created mew branch sc-14-create-offer and added the file page.tsx with the above content
  */
 
 import Link from 'next/link';
