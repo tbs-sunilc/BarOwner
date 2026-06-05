@@ -814,6 +814,18 @@ export const setOfferActive = (offerId: number, isActive: boolean) =>
     body: JSON.stringify({ isActive }),
   });
 
+export const getOfferById = (offerId: number) =>
+  request<OfferDto>(`/api/v1/offers/${offerId}`);
+
+export const updateOffer = (offerId: number, payload: CreateOfferPayload) =>
+  request<OfferDto>(`/api/v1/offers/${offerId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+export const deleteOffer = (offerId: number) =>
+  request<void>(`/api/v1/offers/${offerId}`, { method: "DELETE" });
+
 // ---- Loyalty programme (bar-owner) ----
 
 export type ProgrammeDto = {
