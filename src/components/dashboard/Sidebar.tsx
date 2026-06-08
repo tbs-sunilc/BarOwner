@@ -15,6 +15,7 @@ const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?:
   { href: '/inventory', icon: <IconBottle />, label: 'Inventory', group: 'core' },
   { href: '/wallet-purchases', icon: <IconWallet />, label: 'Wallet Purchases', group: 'core' },
   { href: '/tables', icon: <IconTable />, label: 'Tables & QR Codes', group: 'core' },
+  { href: '/menu', icon: <IconTable />, label: 'Food Menu', group: 'core' },
   { href: '/staff', icon: <IconUsers />, label: 'Staff Accounts', group: 'core' },
   { href: '/revenue', icon: <IconRevenue />, label: 'Revenue', group: 'core' },
   { href: '/offers', icon: <IconGift />, label: 'Offers', group: 'growth' },
@@ -30,6 +31,7 @@ export function Sidebar({ barName }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [displayBarName, setDisplayBarName] = useState(barName);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const initials = useMemo(() => getInitials(displayBarName), [displayBarName]);
   const groups: Array<{ key: 'core' | 'growth' | 'account'; label: string }> = [
     { key: 'core', label: 'Operations' },
@@ -38,8 +40,15 @@ export function Sidebar({ barName }: Props) {
   ];
 
   useEffect(() => {
-    const details = getActiveBarDetails();
-    if (details?.businessName) setDisplayBarName(details.businessName);
+    const updateDetails = () => {
+      const details = getActiveBarDetails();
+      if (details?.businessName) setDisplayBarName(details.businessName);
+      setLogoUrl(details?.logoUrl ?? null);
+    };
+
+    updateDetails();
+    window.addEventListener('sipsave-active-bar-updated', updateDetails);
+    return () => window.removeEventListener('sipsave-active-bar-updated', updateDetails);
   }, []);
 
   return (
@@ -80,8 +89,12 @@ export function Sidebar({ barName }: Props) {
       >
         <div className="border-b border-[var(--color-ink-3)] px-5 pb-5 pt-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-accent)] text-[var(--color-ink)] shadow-[0_12px_30px_-18px_rgba(184,134,11,0.95)]">
-              <IconBottle />
+            <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[var(--color-accent)] text-[var(--color-ink)] shadow-[0_12px_30px_-18px_rgba(184,134,11,0.95)]">
+              {logoUrl ? (
+                <img src={logoUrl} alt={`${displayBarName} logo`} className="h-full w-full object-contain" />
+              ) : (
+                <IconBottle />
+              )}
             </div>
             <div className="min-w-0">
               <p className="font-semibold tracking-[0.22em] text-[0.7rem] uppercase text-[rgb(248_243_234_/_0.56)]">

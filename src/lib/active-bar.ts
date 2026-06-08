@@ -17,6 +17,7 @@ export type ActiveBarDetails = {
   isVerified: boolean;
   isActive: boolean;
   verificationQueueMessage: string;
+  logoUrl?: string | null;
 };
 
 export function setActiveBarId(barId: number): void {
@@ -24,10 +25,23 @@ export function setActiveBarId(barId: number): void {
   window.sessionStorage.setItem(STORAGE_KEY, String(barId));
 }
 
-export function setActiveBarDetails(details: ActiveBarDetails): void {
+export function setActiveBarDetails(details: Partial<ActiveBarDetails> & { barId: number }): void {
   if (typeof window === 'undefined') return;
-  setActiveBarId(details.barId);
-  window.sessionStorage.setItem(DETAILS_STORAGE_KEY, JSON.stringify(details));
+  const existing = getActiveBarDetails();
+  const merged: ActiveBarDetails = {
+    barId: details.barId,
+    businessName: details.businessName ?? existing?.businessName ?? 'Your Bar',
+    city: details.city ?? existing?.city ?? '',
+    stateCode: details.stateCode ?? existing?.stateCode ?? '',
+    isVerified: details.isVerified ?? existing?.isVerified ?? false,
+    isActive: details.isActive ?? existing?.isActive ?? false,
+    verificationQueueMessage: details.verificationQueueMessage ?? existing?.verificationQueueMessage ?? '',
+    logoUrl: details.logoUrl ?? existing?.logoUrl ?? null,
+  };
+
+  setActiveBarId(merged.barId);
+  window.sessionStorage.setItem(DETAILS_STORAGE_KEY, JSON.stringify(merged));
+  window.dispatchEvent(new Event('sipsave-active-bar-updated'));
 }
 
 export function getActiveBarId(): number | null {
@@ -56,6 +70,7 @@ export function getActiveBarDetails(): ActiveBarDetails | null {
         isVerified: Boolean(parsed.isVerified),
         isActive: Boolean(parsed.isActive),
         verificationQueueMessage: parsed.verificationQueueMessage || '',
+        logoUrl: parsed.logoUrl ?? null,
       };
     }
   } catch {

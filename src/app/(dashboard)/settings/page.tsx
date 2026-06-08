@@ -99,6 +99,7 @@ export default function SettingsPage() {
       isVerified: data.isVerified,
       isActive: data.isActive,
       verificationQueueMessage: data.verificationQueueMessage,
+      logoUrl: data.logoUrl,
     });
     return data;
   }, []);
