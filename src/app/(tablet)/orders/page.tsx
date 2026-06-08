@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getTabletState, TabletState, saveTabletState, FoodOrderState } from '@/lib/tablet-state';
+import { fetchActiveFoodOrders } from '@/lib/api-client';
 
 export default function FoodOrdersPage() {
   const [state, setState] = useState<TabletState | null>(null);
@@ -16,10 +17,37 @@ export default function FoodOrdersPage() {
   ]);
 
   useEffect(() => {
-    setState(getTabletState());
+    const local = getTabletState();
+    setState(local);
+
+    let mounted = true;
+    (async () => {
+      try {
+        const orders = await fetchActiveFoodOrders(1);
+        if (!mounted || !orders) return;
+
+        const mapped = orders.map(o => ({
+          id: o.id,
+          tableId: o.tableId ?? 0,
+          customer: o.customer ?? `Guest T${o.tableId ?? 0}`,
+          timeLabel: o.timeLabel,
+          status: (o.status as any) ?? 'Pending',
+          items: o.items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+          total: Number(o.total)
+        } as FoodOrderState));
+
+        const updated = { ...(local ?? {} as TabletState), foodOrders: mapped } as TabletState;
+        saveTabletState(updated);
+        setState(updated);
+      } catch (err) {
+        console.warn('Failed to fetch live orders', err);
+      }
+    })();
+
+    return () => { mounted = false; };
   }, []);
 
-  if (!state) {
+  if (!state || !Array.isArray(state.foodOrders)) {
     return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading orders...</div>;
   }
 

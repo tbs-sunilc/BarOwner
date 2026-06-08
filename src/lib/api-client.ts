@@ -482,6 +482,12 @@ export const submitBarDocumentsForm = (
     body: formData,
   });
 
+export const uploadBarMedia = (barId: number, formData: FormData) =>
+  request<void>(`/api/v1/bars/${barId}/media`, {
+    method: "POST",
+    body: formData,
+  });
+
 export type BarDetails = {
   barId: number;
   businessName: string;
@@ -509,6 +515,23 @@ export type BarOwnerSettings = {
   closureReason: string | null;
   plannedReopenOn: string | null;
   verificationQueueMessage: string;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  locality: string | null;
+  pincode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  ambianceTagsJson: string | null;
+  openingHoursJson: string | null;
+  logoUrl: string | null;
+  photoGalleryJson: string | null;
+  gstin: string | null;
+  fssaiLicenceNumber: string | null;
+  liquorLicenceNumber: string | null;
+  gstinDocumentUrl: string | null;
+  fssaiDocumentUrl: string | null;
+  liquorLicenceDocumentUrl: string | null;
+  rejectionReason: string | null;
 };
 
 export const getBarOwnerSettings = (barId: number) => {
@@ -521,6 +544,16 @@ export type UpdateBarProfilePayload = {
   description?: string | null;
   contactMobile?: string | null;
   contactEmail?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  locality?: string | null;
+  pincode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  ambianceTags?: string[] | null;
+  openingHoursJson?: string | null;
+  logoUrl?: string | null;
+  photoGalleryUrls?: string[] | null;
 };
 
 export const updateBarProfile = (barId: number, payload: UpdateBarProfilePayload) => {
@@ -813,6 +846,25 @@ export const fetchServedTonight = (barId: number, take = 50) =>
 export const fetchPourRequest = (id: number) =>
   request<PourRequestDto>(`/api/v1/pour-requests/${id}`);
 
+export type FoodOrderItemDto = {
+  name: string;
+  qty: number;
+  price: number; // rupees
+};
+
+export type FoodOrderDto = {
+  id: number;
+  tableId?: number | null;
+  customer?: string | null;
+  timeLabel: string;
+  status: 'Pending' | 'In preparation' | 'Served' | string;
+  items: FoodOrderItemDto[];
+  total: number; // rupees
+};
+
+export const fetchActiveFoodOrders = (barId: number) =>
+  request<FoodOrderDto[]>(`/api/orders?barId=${barId}`);
+
 export const servePourRequest = (
   id: number,
   servedMl: number,
@@ -903,6 +955,18 @@ export const setOfferActive = (offerId: number, isActive: boolean) =>
     method: "PUT",
     body: JSON.stringify({ isActive }),
   });
+
+export const getOfferById = (offerId: number) =>
+  request<OfferDto>(`/api/v1/offers/${offerId}`);
+
+export const updateOffer = (offerId: number, payload: CreateOfferPayload) =>
+  request<OfferDto>(`/api/v1/offers/${offerId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+export const deleteOffer = (offerId: number) =>
+  request<void>(`/api/v1/offers/${offerId}`, { method: "DELETE" });
 
 // ---- Loyalty programme (bar-owner) ----
 
@@ -1281,14 +1345,47 @@ export type CreateStaffPayload = {
   email?: string | null;
   password: string;
   role: "Manager" | "Bartender";
+  sendEmail?: boolean;
+};
+
+export type UpdateStaffPayload = {
+  fullName: string;
+  mobileNumber: string;
+  email?: string | null;
+  role: "Manager" | "Bartender";
+  password?: string | null;
+  sendEmail?: boolean;
 };
 
 export const listStaff = (barId: number) =>
   request<StaffRowDto[]>(`/api/v1/bars/${barId}/staff`);
 
+export type ShiftHandoverPayload = {
+  bartenderId?: number | null;
+  handoverToStaffId?: number | null;
+  handoverToName?: string | null;
+  notes?: string | null;
+  barId?: number | null;
+};
+
+export const postShiftHandover = (payload: ShiftHandoverPayload) =>
+  request<ShiftHandoverPayload>(`/api/v1/shifts/handover`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
 export const createStaff = (barId: number, payload: CreateStaffPayload) =>
   request<StaffRowDto>(`/api/v1/bars/${barId}/staff`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const getStaffById = (staffId: number) =>
+  request<StaffRowDto>(`/api/v1/staff/${staffId}`);
+
+export const updateStaff = (staffId: number, payload: UpdateStaffPayload) =>
+  request<StaffRowDto>(`/api/v1/staff/${staffId}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 

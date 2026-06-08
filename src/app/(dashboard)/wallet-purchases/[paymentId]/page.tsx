@@ -70,7 +70,14 @@ export default function WalletPurchaseDetailPage() {
             <Metric label="Remaining" value={data.summary.remainingVolumeMl == null ? '-' : `${data.summary.remainingVolumeMl}ml`} />
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-3">
+          <section className="grid gap-4 lg:grid-cols-4">
+            <InfoPanel title="Payment">
+              <InfoRow label="Status" value={data.summary.status} />
+              <InfoRow label="Method" value={data.summary.paymentMethod || '-'} />
+              <InfoRow label="Created" value={formatDateTime(data.summary.createdAtUtc)} />
+              <InfoRow label="Captured" value={data.summary.capturedAtUtc ? formatDateTime(data.summary.capturedAtUtc) : '-'} />
+            </InfoPanel>
+
             <InfoPanel title="Customer">
               <InfoRow label="Name" value={data.customer.name} />
               <InfoRow label="Mobile" value={data.customer.mobileNumber || '-'} />
@@ -92,7 +99,11 @@ export default function WalletPurchaseDetailPage() {
                   <InfoRow label="Expires" value={data.wallet.expiresOn || '-'} />
                 </>
               ) : (
-                <p className="text-sm text-slate-500">No wallet was created for this payment.</p>
+                <p className="text-sm text-slate-500">
+                  {data.summary.status === 'Payment Pending'
+                    ? 'Wallet will be created after payment is captured.'
+                    : 'No wallet was created for this payment.'}
+                </p>
               )}
             </InfoPanel>
           </section>
@@ -206,7 +217,11 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function StatusBadge({ status }: { status: string }) {
   const cls = status === 'Captured'
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : 'bg-rose-50 text-rose-700 border-rose-200';
+    : status === 'Consumed'
+      ? 'bg-slate-100 text-slate-700 border-slate-200'
+      : status === 'Payment Pending'
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-rose-50 text-rose-700 border-rose-200';
   return <span className={`inline-flex rounded-full border px-3 py-2 text-xs font-bold uppercase ${cls}`}>{status}</span>;
 }
 
