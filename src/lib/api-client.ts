@@ -514,13 +514,27 @@ export type InventoryStockState =
   | "OutOfStock"
   | "Unavailable";
 
+export type MasterCategory = {
+  id: number;
+  name: string;
+  isActive: boolean;
+  catalogueItemCount: number;
+};
+
+export const listMasterCategories = (activeOnly = true) =>
+  request<MasterCategory[]>(
+    `/api/v1/master-categories?activeOnly=${activeOnly}`,
+  );
+
 export type InventoryItem = {
   id: number;
   barId: number;
   bottleCatalogueId: number;
   barInventoryCategoryId: number;
+  masterCategoryId?: number | null;
   brandName: string;
   productName: string;
+  /** Platform master category name (Whisky, Vodka, etc.). */
   category: string;
   subCategory?: string | null;
   imageUrl?: string | null;
@@ -584,6 +598,7 @@ export type AddBottlePayload = {
   sellingPrice: number;
   costPrice?: number | null;
   bottlesInStock: number;
+  masterCategoryId?: number | null;
   lowStockThreshold?: number;
   volume750MlAvailable?: boolean;
   volume1000MlAvailable?: boolean;

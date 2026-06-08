@@ -299,7 +299,7 @@ export default function InventoryPage() {
             <thead className="text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
               <tr>
                 <Th>Bottle</Th>
-                <Th>Category</Th>
+                <Th>Shelf / Type</Th>
                 <Th align="right">Sell Price</Th>
                 <Th align="right">Physical</Th>
                 <Th align="right">Committed</Th>
@@ -452,7 +452,7 @@ function InventoryRow({
         <div className="font-medium text-slate-800">
           {categoryNameById.get(item.barInventoryCategoryId) ?? '—'}
         </div>
-        <div className="text-[11px] text-slate-400">{item.category}</div>
+        <div className="text-[11px] text-slate-400">{item.category || '—'}</div>
       </td>
       <td className="px-3 py-2.5 text-right font-semibold text-violet-700">
         ₹{item.sellingPrice.toLocaleString('en-IN')}

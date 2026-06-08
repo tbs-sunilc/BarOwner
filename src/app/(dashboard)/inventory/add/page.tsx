@@ -20,10 +20,12 @@ import {
   createInventoryCategory,
   getBarDetails,
   listInventoryCategories,
+  listMasterCategories,
   searchBottleCatalogue,
   type AddBottlePayload,
   type BarInventoryCategory,
   type BottleCatalogueSearchHit,
+  type MasterCategory,
 } from '@/lib/api-client';
 import { getActiveBarId, setActiveBarDetails } from '@/lib/active-bar';
 
@@ -54,12 +56,13 @@ export default function AddBottlePage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const [masterCategories, setMasterCategories] = useState<MasterCategory[]>([]);
+  const [selectedMasterCategoryId, setSelectedMasterCategoryId] = useState<number | null>(null);
+  const [masterCategoryFilter, setMasterCategoryFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<BottleCatalogueSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  // Bar category is for organizing inventory, not filtering catalogue search.
-  // Show all catalogue results regardless of selected bar category.
   const filteredResults = useMemo(() => results, [results]);
   const [picked, setPicked] = useState<BottleCatalogueSearchHit | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -86,19 +89,8 @@ export default function AddBottlePage() {
     };
   }, []);
 
-  // Load full bottle catalogue on bar load (no search term) to enable category filter before searching
-  useEffect(() => {
-    if (!barId) return;
-    const loadAll = async () => {
-      try {
-        const allHits = await searchBottleCatalogue(barId, '');
-        setResults(allHits);
-      } catch (ex) {
-        setSearchError(ex instanceof ApiError ? ex.message : 'Failed to load catalogue');
-      }
-    };
-    loadAll();
-  }, [barId]);
+  const catalogueCategoryFilter =
+    masterCategoryFilter === 'All' ? undefined : masterCategoryFilter;
   useEffect(() => {
     if (!barId) return;
     listInventoryCategories(barId)
@@ -109,38 +101,49 @@ export default function AddBottlePage() {
       .catch(() => setCategories([]));
   }, [barId]);
 
-  // Debounced search.
+  useEffect(() => {
+    listMasterCategories(true)
+      .then(setMasterCategories)
+      .catch(() => setMasterCategories([]));
+  }, []);
+
+  const masterCategoryByName = useMemo(() => {
+    const map = new Map<string, MasterCategory>();
+    for (const c of masterCategories) map.set(c.name.toLowerCase(), c);
+    return map;
+  }, [masterCategories]);
+
+  function resolveMasterCategoryId(categoryName: string): number | null {
+    return masterCategoryByName.get(categoryName.trim().toLowerCase())?.id ?? null;
+  }
+
+  // Debounced catalogue search (optional master-category filter).
   useEffect(() => {
     if (!barId) return;
     const term = searchTerm.trim();
-    if (term.length < 2) {
-      // If the search term is empty or too short, load the full catalogue (or category‑filtered list).
-      const loadAll = async () => {
-        try {
-          const allHits = await searchBottleCatalogue(barId, '');
-          setResults(allHits);
-        } catch (ex) {
-          setSearchError(ex instanceof ApiError ? ex.message : 'Failed to load catalogue');
-        }
-      };
-      loadAll();
-      setSearching(false);
-      return;
-    }
-    const handle = window.setTimeout(async () => {
+    const loadCatalogue = async (query: string) => {
       setSearching(true);
       setSearchError(null);
       try {
-        const hits = await searchBottleCatalogue(barId, term);
+        const hits = await searchBottleCatalogue(barId, query, catalogueCategoryFilter);
         setResults(hits);
       } catch (ex) {
-        setSearchError(ex instanceof ApiError ? ex.message : 'Network error.');
+        setSearchError(ex instanceof ApiError ? ex.message : 'Failed to load catalogue');
       } finally {
         setSearching(false);
       }
+    };
+
+    if (term.length < 2) {
+      void loadCatalogue('');
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      void loadCatalogue(term);
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [barId, searchTerm]);
+  }, [barId, searchTerm, catalogueCategoryFilter]);
 
   // ── Form helpers ──────────────────────────────────────────────────────
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -171,7 +174,7 @@ export default function AddBottlePage() {
     selectedCategoryId !== null &&
     Object.keys(formErrors).length === 0 &&
     !submitting &&
-    (!isCustom || (customBrandName.trim() !== '' && customProductName.trim() !== ''));
+    (!isCustom || (customBrandName.trim() !== '' && customProductName.trim() !== '' && selectedMasterCategoryId !== null));
 
   async function onCreateCategory() {
     if (!barId || !newCategoryName.trim() || creatingCategory) return;
@@ -195,6 +198,7 @@ export default function AddBottlePage() {
     setIsCustom(false);
     setCustomBrandName('');
     setCustomProductName('');
+    setSelectedMasterCategoryId(resolveMasterCategoryId(hit.category));
     setSubmitError(null);
     setForm(EMPTY_FORM);
   }
@@ -203,6 +207,9 @@ export default function AddBottlePage() {
     setIsCustom(true);
     setCustomBrandName(searchTerm || '');
     setCustomProductName('');
+    setSelectedMasterCategoryId(
+      masterCategoryFilter !== 'All' ? resolveMasterCategoryId(masterCategoryFilter) : null,
+    );
     setPicked({
       id: 0,
       brandName: '',
@@ -230,6 +237,7 @@ export default function AddBottlePage() {
         volume750MlAvailable:  form.volume750MlAvailable,
         volume1000MlAvailable: form.volume1000MlAvailable,
         isAvailable:           form.isAvailable,
+        masterCategoryId:      isCustom ? selectedMasterCategoryId : selectedMasterCategoryId ?? undefined,
         customBrandName:       isCustom ? customBrandName.trim() : undefined,
         customProductName:     isCustom ? customProductName.trim() : undefined,
         customDefaultVolumeMl: isCustom ? (form.volume750MlAvailable ? 750 : 1000) : undefined,
@@ -264,9 +272,9 @@ export default function AddBottlePage() {
       )}
 
       <section className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-800 mb-4">Your Category *</h3>
+        <h3 className="text-sm font-bold text-slate-800 mb-4">Your Shelf Category *</h3>
         <p className="text-[11px] text-slate-500 mb-3">
-          Assign this bottle to one of your bar&apos;s categories. Create new ones anytime.
+          Where this bottle sits on your bar&apos;s shelves — Premium, House Pour, etc.
         </p>
 
         {categories.length > 0 ? (
@@ -311,8 +319,22 @@ export default function AddBottlePage() {
         </div>
 
         <h3 className="text-sm font-bold text-slate-800 mb-4">🔍 Search Master Bottle Catalogue</h3>
+        <p className="text-[11px] text-slate-500 mb-3">
+          Filter by product type (Whisky, Vodka, etc.) then pick from the platform catalogue.
+        </p>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 mb-2">
+          <select
+            value={masterCategoryFilter}
+            onChange={(e) => setMasterCategoryFilter(e.target.value)}
+            className="px-3 py-2.5 border border-slate-200 rounded-md text-sm bg-white sm:w-44"
+            disabled={!barId}
+          >
+            <option value="All">All types</option>
+            {masterCategories.map((c) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
           <input
             type="text"
             value={searchTerm}
@@ -430,12 +452,27 @@ export default function AddBottlePage() {
                       className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-md text-sm bg-white"
                     />
                   </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-slate-700">Product Type (Master Category) *</label>
+                    <select
+                      value={selectedMasterCategoryId ?? ''}
+                      onChange={(e) => setSelectedMasterCategoryId(Number(e.target.value) || null)}
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-md text-sm bg-white"
+                    >
+                      <option value="" disabled>Select type…</option>
+                      {masterCategories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700 mb-4">
-                ✅ <strong>{picked.brandName} — {picked.productName}</strong> selected from
-                catalogue
+                ✅ <strong>{picked.brandName} — {picked.productName}</strong> selected from catalogue
+                {picked.category ? (
+                  <span className="block mt-1 text-green-800/80">Type: {picked.category}</span>
+                ) : null}
               </div>
             )}
 

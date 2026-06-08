@@ -38,13 +38,43 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTaxSettings, setShowTaxSettings] = useState(false);
+  const [defaultGstPercent, setDefaultGstPercent] = useState(5);
+  const [defaultServiceChargePercent, setDefaultServiceChargePercent] = useState(10);
 
   useEffect(() => setBarId(getActiveBarId()), []);
 
   useEffect(() => {
     if (barId == null) return;
     void loadMenu(barId);
+    loadTaxSettings(barId);
   }, [barId]);
+
+  function loadTaxSettings(id: number) {
+    try {
+      const stored = localStorage.getItem(`tax-settings-${id}`);
+      if (stored) {
+        const settings = JSON.parse(stored);
+        setDefaultGstPercent(settings.gst ?? 5);
+        setDefaultServiceChargePercent(settings.sc ?? 10);
+      }
+    } catch (err) {
+      console.error('Failed to load tax settings:', err);
+    }
+  }
+
+  function saveTaxSettings() {
+    if (barId == null) return;
+    try {
+      localStorage.setItem(`tax-settings-${barId}`, JSON.stringify({
+        gst: defaultGstPercent,
+        sc: defaultServiceChargePercent,
+      }));
+      setShowTaxSettings(false);
+    } catch (err) {
+      console.error('Failed to save tax settings:', err);
+    }
+  }
 
   const grouped = useMemo(() => {
     return items.reduce<Record<string, MenuItemDto[]>>((acc, item) => {
@@ -170,13 +200,18 @@ export default function MenuPage() {
                   <div className="space-y-3">
                     {rows.map((item) => (
                       <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3">
-                        <div>
+                        {item.imageUrl && (
+                          <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg object-cover" />
+                        )}
+                        <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold text-slate-900">{item.name}</p>
                             <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${item.isAvailable ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                               {item.isAvailable ? 'Available' : 'Hidden'}
                             </span>
-                            {item.isVeg && <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-bold text-green-700">Veg</span>}
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.isVeg ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {item.isVeg ? '🌱 Veg' : '🔪 Non-Veg'}
+                            </span>
                           </div>
                           <p className="mt-1 text-sm text-slate-500">{item.description || 'No description'} · ₹{item.price.toFixed(2)}</p>
                         </div>
@@ -222,6 +257,9 @@ export default function MenuPage() {
             </Field>
             <Field label="Description">
               <textarea className="input min-h-20" value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </Field>
+            <Field label="Image URL">
+              <input className="input" type="url" placeholder="https://example.com/image.jpg" value={form.imageUrl ?? ''} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
             </Field>
             <label className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <span className="font-medium text-slate-700">Available to staff</span>
