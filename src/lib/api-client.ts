@@ -374,6 +374,12 @@ export const submitBarDocumentsForm = (
     body: formData,
   });
 
+export const uploadBarMedia = (barId: number, formData: FormData) =>
+  request<void>(`/api/v1/bars/${barId}/media`, {
+    method: "POST",
+    body: formData,
+  });
+
 export type BarDetails = {
   barId: number;
   businessName: string;

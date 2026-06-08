@@ -9,7 +9,7 @@ import {
   getBarOwnerSettings,
   reopenBar,
   updateBarProfile,
-  submitBarDocumentsForm,
+  uploadBarMedia,
   type BarOwnerSettings,
 } from '@/lib/api-client';
 import { CloseBarModal } from '@/components/modals/CloseBarModal';
@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [ambianceTags, setAmbianceTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
   const [openingHours, setOpeningHours] = useState<Record<string, { open: string; close: string }>>({});
@@ -132,6 +133,17 @@ export default function SettingsPage() {
     })();
   }, [barId, settings?.isTemporarilyClosed]);
 
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreviewUrl(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
+
   async function handleSaveProfile() {
     if (barId == null) return;
     setNotice(null);
@@ -163,11 +175,11 @@ export default function SettingsPage() {
       if (logoFile || galleryFiles.length > 0) {
         const formData = new FormData();
         if (logoFile) formData.append('logo', logoFile);
-        galleryFiles.forEach(file => formData.append('gallery', file));
+        galleryFiles.forEach(file => formData.append('photoGallery', file));
         try {
-          await submitBarDocumentsForm(barId, formData);
+          await uploadBarMedia(barId, formData);
         } catch (e) {
-          console.warn('Document upload failed (might not be supported on backend yet)', e);
+          console.warn('Media upload failed', e);
         }
       }
 
@@ -318,7 +330,20 @@ export default function SettingsPage() {
             <div className="grid md:grid-cols-2 gap-6">
               <Field label="Logo Upload">
                 <input type="file" accept="image/*" onChange={e => setLogoFile(e.target.files?.[0] || null)} className="text-sm w-full border border-slate-200 rounded-lg p-2" />
-                {settings?.logoUrl && !logoFile && <p className="text-xs text-slate-500 mt-1">Current logo exists on server.</p>}
+                {(logoPreviewUrl || settings?.logoUrl) && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <img
+                        src={logoPreviewUrl ?? settings?.logoUrl ?? undefined}
+                        alt="Bar logo preview"
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {logoPreviewUrl ? 'New logo selected. Save to upload.' : 'Current logo on server.'}
+                    </p>
+                  </div>
+                )}
               </Field>
               <Field label="Photo Gallery">
                 <input type="file" accept="image/*" multiple onChange={e => setGalleryFiles(Array.from(e.target.files || []))} className="text-sm w-full border border-slate-200 rounded-lg p-2" />
