@@ -21,6 +21,8 @@ import {
 
 type Role = 'Bartender' | 'Manager';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const ROLE_INFO: Record<Role, { label: string; copy: string; capabilities: string[] }> = {
   Bartender: {
     label: 'Bartender',
@@ -59,9 +61,10 @@ export default function AddStaffPage() {
   const warning = useMemo(() => {
     if (!fullName.trim()) return 'Enter the staff member\'s full name.';
     if (!/^[\+]?[0-9]{10,15}$/.test(mobile.replace(/\s/g, ''))) return 'Enter a valid mobile number.';
+    if (!EMAIL_REGEX.test(email.trim())) return 'Enter a valid email address.';
     if (password.length < 8) return 'Password must be at least 8 characters.';
     return null;
-  }, [fullName, mobile, password]);
+  }, [email, fullName, mobile, password]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,7 +75,7 @@ export default function AddStaffPage() {
     const payload: CreateStaffPayload = {
       fullName: fullName.trim(),
       mobileNumber: mobile.trim(),
-      email: email.trim() || null,
+      email: email.trim().toLowerCase(),
       password,
       role,
     };
@@ -105,15 +108,21 @@ export default function AddStaffPage() {
                    className="w-full rounded-lg border-slate-300 text-sm" />
           </Field>
 
-          <Field label="Mobile number (tablet login)">
+          <Field label="Mobile number">
             <input value={mobile} onChange={(e) => setMobile(e.target.value)}
                    placeholder="+91 9876543210"
                    className="w-full rounded-lg border-slate-300 text-sm" />
           </Field>
 
-          <Field label="Email (optional)">
+          <Field label="Email address (used for login)">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200}
+                   required
+                   autoComplete="email"
+                   placeholder="staff@bar.com"
                    className="w-full rounded-lg border-slate-300 text-sm" />
+            <p className="text-xs text-slate-500 mt-1">
+              This is the tablet login ID and the address used for password resets.
+            </p>
           </Field>
 
           <Field label="Starter password">

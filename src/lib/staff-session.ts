@@ -1,9 +1,21 @@
+import { clearActiveBarId } from '@/lib/active-bar';
+
 /** Staff tablet session keys and helpers (Phase 8 bartender login). */
 
 export const STAFF_TOKEN_KEY = 'sipsave-staff-access-token';
 export const STAFF_TOKEN_EXPIRES_KEY = 'sipsave-staff-access-token-expires-at';
 export const STAFF_USER_KEY = 'sipsave-staff-user';
 export const STAFF_NAME_KEY = 'sipsave-staff-full-name';
+export const STAFF_EMAIL_KEY = 'sipsave-staff-email';
+
+export type StaffSessionUser = {
+  id: number;
+  fullName: string | null;
+  email?: string | null;
+  role: string;
+  barId: number;
+  mustResetPassword?: boolean;
+};
 
 /** Buffer before JWT expiry to redirect proactively (ms). */
 const EXPIRY_BUFFER_MS = 30_000;
@@ -28,13 +40,28 @@ export function isStaffSessionValid(): boolean {
   return Date.now() < expiresAt - EXPIRY_BUFFER_MS;
 }
 
+export function getStoredStaffUser(): StaffSessionUser | null {
+  if (typeof window === 'undefined') return null;
+
+  const raw = window.sessionStorage.getItem(STAFF_USER_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as StaffSessionUser;
+  } catch {
+    return null;
+  }
+}
+
 export function clearStaffSession(): void {
   if (typeof window === 'undefined') return;
   window.sessionStorage.removeItem(STAFF_TOKEN_KEY);
   window.sessionStorage.removeItem(STAFF_TOKEN_EXPIRES_KEY);
   window.sessionStorage.removeItem(STAFF_USER_KEY);
   window.sessionStorage.removeItem(STAFF_NAME_KEY);
+  window.sessionStorage.removeItem(STAFF_EMAIL_KEY);
   window.sessionStorage.removeItem('sipsave-staff-role');
+  clearActiveBarId();
 }
 
 export type StaffLogoutReason = 'expired' | 'unauthorized';
