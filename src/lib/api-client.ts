@@ -243,6 +243,56 @@ export const fetchCustomerLookup = (mobileNumber: string, barId: number) =>
     `/api/v1/sessions/customer-lookup?mobileNumber=${encodeURIComponent(mobileNumber)}&barId=${encodeURIComponent(barId)}`,
   );
 
+export type UserDetailDto = {
+  id: number;
+  mobileNumber: string;
+  countryCode: string;
+  fullName: string | null;
+  email: string | null;
+  dateOfBirth: string | null;
+  gender: string | null;
+  profilePhotoUrl: string | null;
+  emergencyContactName: string | null;
+  emergencyContactMobile: string | null;
+  healthConditions: string | null;
+  allergies: string | null;
+  authProvider: string;
+  kycStatus: string;
+  kycDocType: string | null;
+  kycDocUrl: string | null;
+  kycSubmittedAtUtc: string | null;
+  kycReviewedAtUtc: string | null;
+  kycRejectionReason: string | null;
+  lastLoginAtUtc: string | null;
+  isActive: boolean;
+  isBanned: boolean;
+  mustResetPassword: boolean;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+};
+
+export type UpdateUserProfilePayload = {
+  fullName?: string | null;
+  email?: string | null;
+  profilePhotoUrl?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactMobile?: string | null;
+  healthConditions?: string | null;
+  allergies?: string | null;
+};
+
+export const getUserDetailById = (userId: number) =>
+  request<UserDetailDto>(`/api/v1/users/${userId}`);
+
+export const updateUserProfileById = (
+  userId: number,
+  payload: UpdateUserProfilePayload,
+) =>
+  request<UserDetailDto>(`/api/v1/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
 
 export const refreshAuthToken = async (
   refreshToken: string,
