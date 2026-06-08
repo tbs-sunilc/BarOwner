@@ -400,6 +400,23 @@ export type BarOwnerSettings = {
   closureReason: string | null;
   plannedReopenOn: string | null;
   verificationQueueMessage: string;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  locality: string | null;
+  pincode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  ambianceTagsJson: string | null;
+  openingHoursJson: string | null;
+  logoUrl: string | null;
+  photoGalleryJson: string | null;
+  gstin: string | null;
+  fssaiLicenceNumber: string | null;
+  liquorLicenceNumber: string | null;
+  gstinDocumentUrl: string | null;
+  fssaiDocumentUrl: string | null;
+  liquorLicenceDocumentUrl: string | null;
+  rejectionReason: string | null;
 };
 
 export const getBarOwnerSettings = (barId: number) => {
@@ -412,6 +429,16 @@ export type UpdateBarProfilePayload = {
   description?: string | null;
   contactMobile?: string | null;
   contactEmail?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  locality?: string | null;
+  pincode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  ambianceTags?: string[] | null;
+  openingHoursJson?: string | null;
+  logoUrl?: string | null;
+  photoGalleryUrls?: string[] | null;
 };
 
 export const updateBarProfile = (barId: number, payload: UpdateBarProfilePayload) => {
