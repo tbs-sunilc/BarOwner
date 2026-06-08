@@ -847,23 +847,134 @@ export const fetchPourRequest = (id: number) =>
   request<PourRequestDto>(`/api/v1/pour-requests/${id}`);
 
 export type FoodOrderItemDto = {
+  menuItemId?: number | null;
   name: string;
   qty: number;
   price: number; // rupees
+  unitPriceInPaise?: number;
+  lineTotalInPaise?: number;
+  specialInstructions?: string | null;
 };
 
 export type FoodOrderDto = {
   id: number;
+  barId?: number;
   tableId?: number | null;
   customer?: string | null;
   timeLabel: string;
-  status: 'Pending' | 'In preparation' | 'Served' | string;
+  status: "Pending" | "In preparation" | "Served" | "Cancelled" | string;
   items: FoodOrderItemDto[];
+  subtotal?: number;
+  gst?: number;
+  serviceCharge?: number;
   total: number; // rupees
+  totalInPaise?: number;
+  paymentStatus?: string;
 };
 
 export const fetchActiveFoodOrders = (barId: number) =>
-  request<FoodOrderDto[]>(`/api/orders?barId=${barId}`);
+  request<FoodOrderDto[]>(`/api/v1/bars/${barId}/food-orders`);
+
+export type MenuItemDto = {
+  id: number;
+  barId: number;
+  name: string;
+  description?: string | null;
+  category: string;
+  priceInPaise: number;
+  price: number;
+  imageUrl?: string | null;
+  isVeg: boolean;
+  spiceLevel?: string | null;
+  allergens?: string | null;
+  isAvailable: boolean;
+  isHighlighted: boolean;
+  displayOrder: number;
+};
+
+export type UpsertMenuItemPayload = {
+  name: string;
+  description?: string | null;
+  category: string;
+  priceInPaise: number;
+  imageUrl?: string | null;
+  isVeg: boolean;
+  spiceLevel?: string | null;
+  allergens?: string | null;
+  isAvailable: boolean;
+  isHighlighted: boolean;
+  displayOrder: number;
+};
+
+export type CreateFoodOrderPayload = {
+  barId: number;
+  tableId?: number | null;
+  customer?: string | null;
+  items: Array<{
+    menuItemId?: number | null;
+    name: string;
+    qty: number;
+    unitPriceInPaise: number;
+    specialInstructions?: string | null;
+  }>;
+  gstPercent?: number;
+  serviceChargePercent?: number;
+  specialInstructions?: string | null;
+};
+
+export const listMenuItems = (barId: number, includeUnavailable = true) =>
+  request<MenuItemDto[]>(
+    `/api/v1/bars/${barId}/menu?includeUnavailable=${includeUnavailable}`,
+  );
+
+export const createMenuItem = (barId: number, payload: UpsertMenuItemPayload) =>
+  request<MenuItemDto>(`/api/v1/bars/${barId}/menu`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const updateMenuItem = (id: number, payload: UpsertMenuItemPayload) =>
+  request<MenuItemDto>(`/api/v1/menu-items/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+export const setMenuItemAvailability = (id: number, isAvailable: boolean) =>
+  request<MenuItemDto>(`/api/v1/menu-items/${id}/availability`, {
+    method: "PUT",
+    body: JSON.stringify({ isAvailable }),
+  });
+
+export const deleteMenuItem = (id: number) =>
+  request<void>(`/api/v1/menu-items/${id}`, { method: "DELETE" });
+
+export const createFoodOrder = (payload: CreateFoodOrderPayload) =>
+  request<FoodOrderDto>("/api/v1/food-orders", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const acceptFoodOrder = (id: number) =>
+  request<FoodOrderDto>(`/api/v1/food-orders/${id}/accept`, { method: "PUT" });
+
+export const prepareFoodOrder = (id: number) =>
+  request<FoodOrderDto>(`/api/v1/food-orders/${id}/preparing`, {
+    method: "PUT",
+  });
+
+export const serveFoodOrder = (id: number) =>
+  request<FoodOrderDto>(`/api/v1/food-orders/${id}/serve`, { method: "PUT" });
+
+export const cancelFoodOrder = (id: number, reason?: string | null) =>
+  request<FoodOrderDto>(`/api/v1/food-orders/${id}/cancel`, {
+    method: "PUT",
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+
+export const settleFoodOrder = (id: number) =>
+  request<FoodOrderDto>(`/api/v1/food-orders/${id}/settle`, {
+    method: "POST",
+  });
 
 export const servePourRequest = (
   id: number,
