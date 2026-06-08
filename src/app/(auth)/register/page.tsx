@@ -312,7 +312,7 @@ export default function RegisterPage() {
               Back to Login
             </button>
             <button type="submit" disabled={!isValid || busy} className="btn btn-primary">
-              {busy ? 'Sending OTP...' : 'Verify Mobile'}
+              {busy ? 'Saving...' : 'Save & Continue'}
             </button>
           </div>
         </form>

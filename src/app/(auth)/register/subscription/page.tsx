@@ -59,6 +59,7 @@ export default function SubscriptionPage() {
   const [plansError, setPlansError] = useState<string | null>(null);
   const [subscribing, setSubscribing] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [isEmailVerified, setIsEmailVerified] = useState<boolean | null>(null);
   const [activeBarId, setActiveBarId] = useState<number | null>(() => getActiveBarId() ?? loadKycStatus()?.barId ?? null);
   const [resolvingBarId, setResolvingBarId] = useState(activeBarId === null);
 
@@ -77,6 +78,30 @@ export default function SubscriptionPage() {
         setPlansError(err instanceof ApiError ? err.message : 'Failed to load subscription plans');
       } finally {
         if (!canceled) setLoadingPlans(false);
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let canceled = false;
+
+    (async () => {
+      try {
+        const bar = await getBarDetails();
+        if (canceled) return;
+
+        setIsEmailVerified(bar.isEmailVerified);
+        if (!bar.isEmailVerified) {
+          setSubscriptionError(
+            'Your bar email is not verified yet. Please check your inbox and verify the email before choosing a plan.',
+          );
+        }
+      } catch {
+        if (!canceled) setIsEmailVerified(null);
       }
     })();
 
@@ -185,6 +210,13 @@ export default function SubscriptionPage() {
       return;
     }
 
+    if (isEmailVerified === false) {
+      setSubscriptionError(
+        'Your bar email is not verified yet. Please verify the email before choosing a plan.',
+      );
+      return;
+    }
+
     const barId = activeBarId;
     if (!barId) {
       setSubscriptionError(
@@ -283,14 +315,14 @@ export default function SubscriptionPage() {
                 onClick={() => {
                   setSelected(plan.name);
                 }}
-                disabled={isDisabled || subscribing}
-                className={`card-raised p-3.5 text-left ${active ? 'border-accent shadow-[var(--shadow-md)]' : 'hover:border-accent'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isDisabled || subscribing || isEmailVerified === false}
+                className={`card-raised p-3.5 text-left ${active ? 'border-accent shadow-[var(--shadow-md)]' : 'hover:border-accent'} ${isDisabled || isEmailVerified === false ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className="mb-3 text-center">
                   <span className="badge badge-neutral">{plan.badge || plan.name}</span>
                   <div className="mt-2 font-display text-2xl font-semibold text-accent-hi">{displayPrice}</div>
                   <p className="mt-1 text-xs text-muted">{displaySuffix}</p>
-                  {isDisabled && <p className="mt-1 text-xs text-rose-600">Not available</p>}
+                  {(isDisabled || isEmailVerified === false) && <p className="mt-1 text-xs text-rose-600">Not available</p>}
                 </div>
                 <ul className="space-y-1 text-[13px]">
                   {displayFeatures.length > 0 ? (
@@ -302,7 +334,7 @@ export default function SubscriptionPage() {
                     <li className="text-soft">No features listed</li>
                   )}
                 </ul>
-                <div className={`mt-3 rounded-md px-4 py-2 text-center text-sm font-semibold ${active ? 'bg-ink text-ivory' : 'border border-strong text-ink'} ${isDisabled ? 'bg-slate-200 text-slate-500' : ''}`}>
+                <div className={`mt-3 rounded-md px-4 py-2 text-center text-sm font-semibold ${active ? 'bg-ink text-ivory' : 'border border-strong text-ink'} ${isDisabled || isEmailVerified === false ? 'bg-slate-200 text-slate-500' : ''}`}>
                   {plan.name === 'Enterprise' ? 'Contact Sales' : 'Select'}
                 </div>
               </button>
@@ -315,7 +347,7 @@ export default function SubscriptionPage() {
         <button
           type="button"
           onClick={handleSubscribe}
-          disabled={subscribing || resolvingBarId}
+          disabled={subscribing || resolvingBarId || isEmailVerified === false}
           className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {subscribing ? 'Subscribing...' : 'Start 30-Day Free Trial →'}
