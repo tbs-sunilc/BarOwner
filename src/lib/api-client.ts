@@ -764,7 +764,7 @@ export type FoodOrderDto = {
 };
 
 export const fetchActiveFoodOrders = (barId: number) =>
-  request<FoodOrderDto[]>(`/api/orders?barId=${barId}`);
+  request<FoodOrderDto[]>(`/api/v1/bars/${barId}/food-orders`);
 
 export type MenuItemDto = {
   id: number;
