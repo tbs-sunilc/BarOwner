@@ -711,6 +711,59 @@ export const setInventoryAvailability = (
     body: JSON.stringify({ isAvailable }),
   });
 
+export type BottleFavoriteDto = {
+  favoriteId: number;
+  barId: number;
+  barInventoryId: number;
+  bottleCatalogueId: number;
+  brandName: string;
+  productName: string;
+  category: string;
+  subCategory?: string | null;
+  originCountry?: string | null;
+  alcoholContentPct?: number | null;
+  defaultVolumeMl: number;
+  imageUrl?: string | null;
+  tastingNotes?: string | null;
+  sellingPrice: number;
+  costPrice?: number | null;
+  volume750MlAvailable: boolean;
+  volume1000MlAvailable: boolean;
+  bottlesInStock: number;
+  bottlesCommitted: number;
+  bottlesAvailableForPurchase: number;
+  lowStockThreshold: number;
+  isAvailable: boolean;
+  stockState: InventoryStockState;
+  favoritedAtUtc: string;
+};
+
+export const listBottleFavorites = (barId: number) => {
+  assertValidBarId(barId);
+  return request<BottleFavoriteDto[]>(`/api/v1/bars/${barId}/bottle-favorites`);
+};
+
+export const favoriteBottle = (barId: number, bottleCatalogueId: number) => {
+  assertValidBarId(barId);
+  if (!Number.isInteger(bottleCatalogueId) || bottleCatalogueId <= 0) {
+    throw new Error(`Invalid bottleCatalogueId: ${bottleCatalogueId}`);
+  }
+  return request<BottleFavoriteDto>(
+    `/api/v1/bars/${barId}/bottle-favorites/${bottleCatalogueId}`,
+    { method: "POST" },
+  );
+};
+
+export const unfavoriteBottle = (barId: number, bottleCatalogueId: number) => {
+  assertValidBarId(barId);
+  if (!Number.isInteger(bottleCatalogueId) || bottleCatalogueId <= 0) {
+    throw new Error(`Invalid bottleCatalogueId: ${bottleCatalogueId}`);
+  }
+  return request<void>(`/api/v1/bars/${barId}/bottle-favorites/${bottleCatalogueId}`, {
+    method: "DELETE",
+  });
+};
+
 export type BottleCatalogueSearchHit = {
   id: number;
   brandName: string;
