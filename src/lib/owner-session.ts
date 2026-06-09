@@ -1,7 +1,6 @@
 import { clearActiveBarId } from '@/lib/active-bar';
 
-/** Clears bar-owner session keys and redirects to login. */
-export function clearOwnerSessionAndRedirect(): void {
+export function clearOwnerSession(): void {
   if (typeof window === 'undefined') return;
   window.sessionStorage.removeItem('sipsave-barowner-access-token');
   window.sessionStorage.removeItem('sipsave-barowner-refresh-token');
@@ -11,5 +10,10 @@ export function clearOwnerSessionAndRedirect(): void {
   window.sessionStorage.removeItem('sipsave-barowner-email');
   window.sessionStorage.removeItem('sipsave-barowner-full-name');
   clearActiveBarId();
+}
+
+/** Clears bar-owner session keys and redirects to login. */
+export function clearOwnerSessionAndRedirect(): void {
+  clearOwnerSession();
   window.location.href = '/login';
 }

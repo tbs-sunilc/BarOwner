@@ -5,7 +5,22 @@
  * problem+json body so callers can render the right banner.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.1.239:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.1.231:5000";
+const PUBLIC_AUTH_PATHS = [
+  "/staff/auth/login",
+  "/staff/auth/forgot-password",
+  "/staff/auth/reset-password",
+  "/auth/login",
+  "/auth/register",
+  "/auth/verify",
+  "/auth/refresh",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+];
+
+function isPublicAuthPath(path: string): boolean {
+  return PUBLIC_AUTH_PATHS.some((segment) => path.includes(segment));
+}
 
 export class ApiError extends Error {
   status: number;
@@ -22,7 +37,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData))
     headers.set("Content-Type", "application/json");
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && !isPublicAuthPath(path)) {
     const ownerToken = window.sessionStorage.getItem(
       "sipsave-barowner-access-token",
     );
@@ -43,10 +58,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (
       res.status === 401 &&
       typeof window !== "undefined" &&
-      !path.includes("/staff/auth/login") &&
-      !path.includes("/auth/register") &&
-      !path.includes("/auth/verify") &&
-      !path.includes("/auth/refresh") &&
+      !isPublicAuthPath(path) &&
       headers.get("Authorization")?.startsWith("Bearer ") &&
       window.sessionStorage.getItem("sipsave-barowner-refresh-token")
     ) {
@@ -66,9 +78,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (
       res.status === 401 &&
       typeof window !== "undefined" &&
-      !path.includes("/staff/auth/login") &&
-      !path.includes("/auth/register") &&
-      !path.includes("/auth/verify") &&
+      !isPublicAuthPath(path) &&
       headers.get("Authorization")?.startsWith("Bearer ") &&
       window.sessionStorage.getItem("sipsave-staff-access-token")
     ) {
@@ -102,7 +112,7 @@ function assertValidBarId(barId: number): void {
 }
 
 // ---------------------------------------------------------------------------
-//  Auth endpoints (bar-owner OTP sign-in)
+//  Auth endpoints (bar-owner sign-in)
 // ---------------------------------------------------------------------------
 
 export type RegisterOtpPayload = {
@@ -149,6 +159,7 @@ export type AuthUser = {
   kycRejectionReason: string | null;
   isPermanentlyRejected: boolean;
   authProvider: string;
+  mustResetPassword: boolean;
   barId?: number | null;
 };
 
@@ -160,6 +171,50 @@ export type VerifyOtpResponse = {
 
 export const verifyOwnerOtp = (payload: VerifyOtpPayload) =>
   request<VerifyOtpResponse>("/api/v1/auth/verify-otp", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type OwnerLoginPayload = {
+  email: string;
+  password: string;
+};
+
+export const loginOwner = (payload: OwnerLoginPayload) =>
+  request<VerifyOtpResponse>("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type ChangeOwnerPasswordPayload = {
+  newPassword: string;
+};
+
+export const changeOwnerPassword = (payload: ChangeOwnerPasswordPayload) =>
+  request<void>("/api/v1/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type RequestOwnerPasswordResetPayload = {
+  email: string;
+};
+
+export const requestOwnerPasswordReset = (
+  payload: RequestOwnerPasswordResetPayload,
+) =>
+  request<void>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type ResetOwnerPasswordPayload = {
+  token: string;
+  newPassword: string;
+};
+
+export const resetOwnerPassword = (payload: ResetOwnerPasswordPayload) =>
+  request<void>("/api/v1/auth/reset-password", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -187,6 +242,56 @@ export const fetchCustomerLookup = (mobileNumber: string, barId: number) =>
   request<CustomerLookupResponse>(
     `/api/v1/sessions/customer-lookup?mobileNumber=${encodeURIComponent(mobileNumber)}&barId=${encodeURIComponent(barId)}`,
   );
+
+export type UserDetailDto = {
+  id: number;
+  mobileNumber: string;
+  countryCode: string;
+  fullName: string | null;
+  email: string | null;
+  dateOfBirth: string | null;
+  gender: string | null;
+  profilePhotoUrl: string | null;
+  emergencyContactName: string | null;
+  emergencyContactMobile: string | null;
+  healthConditions: string | null;
+  allergies: string | null;
+  authProvider: string;
+  kycStatus: string;
+  kycDocType: string | null;
+  kycDocUrl: string | null;
+  kycSubmittedAtUtc: string | null;
+  kycReviewedAtUtc: string | null;
+  kycRejectionReason: string | null;
+  lastLoginAtUtc: string | null;
+  isActive: boolean;
+  isBanned: boolean;
+  mustResetPassword: boolean;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+};
+
+export type UpdateUserProfilePayload = {
+  fullName?: string | null;
+  email?: string | null;
+  profilePhotoUrl?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactMobile?: string | null;
+  healthConditions?: string | null;
+  allergies?: string | null;
+};
+
+export const getUserDetailById = (userId: number) =>
+  request<UserDetailDto>(`/api/v1/users/${userId}`);
+
+export const updateUserProfileById = (
+  userId: number,
+  payload: UpdateUserProfilePayload,
+) =>
+  request<UserDetailDto>(`/api/v1/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 
 
 export const refreshAuthToken = async (
@@ -221,7 +326,7 @@ export const refreshAuthToken = async (
 // ---------------------------------------------------------------------------
 
 export type StaffLoginPayload = {
-  mobileNumber: string;
+  email: string;
   password: string;
 };
 
@@ -232,10 +337,43 @@ export type StaffLoginResponse = {
   fullName: string;
   role: string;
   barId: number;
+  email?: string | null;
+  mustResetPassword: boolean;
 };
 
 export const loginStaff = (payload: StaffLoginPayload) =>
   request<StaffLoginResponse>("/api/v1/staff/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type StaffChangePasswordPayload = {
+  newPassword: string;
+};
+
+export const changeStaffPassword = (payload: StaffChangePasswordPayload) =>
+  request<void>("/api/v1/staff/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type StaffForgotPasswordPayload = {
+  email: string;
+};
+
+export const requestStaffPasswordReset = (payload: StaffForgotPasswordPayload) =>
+  request<void>("/api/v1/staff/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type StaffResetPasswordPayload = {
+  token: string;
+  newPassword: string;
+};
+
+export const resetStaffPassword = (payload: StaffResetPasswordPayload) =>
+  request<void>("/api/v1/staff/auth/reset-password", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -337,6 +475,7 @@ export type RegisterBarResponse = {
   businessName: string;
   city: string;
   stateCode: string;
+  isEmailVerified: boolean;
   isVerified: boolean;
   isActive: boolean;
   verificationQueueMessage: string;
@@ -344,6 +483,25 @@ export type RegisterBarResponse = {
 
 export const registerBar = (payload: RegisterBarPayload) =>
   request<RegisterBarResponse>("/api/v1/bars", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type VerifyBarEmailPayload = {
+  token: string;
+};
+
+export type BarEmailVerificationResponse = {
+  barId: number;
+  businessName: string;
+  contactEmail: string;
+  isEmailVerified: boolean;
+  emailVerifiedAtUtc: string | null;
+  message: string;
+};
+
+export const verifyBarEmail = (payload: VerifyBarEmailPayload) =>
+  request<BarEmailVerificationResponse>("/api/v1/bars/verify-email", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -385,6 +543,7 @@ export type BarDetails = {
   businessName: string;
   city: string;
   stateCode: string;
+  isEmailVerified: boolean;
   isVerified: boolean;
   isActive: boolean;
   verificationQueueMessage: string;
@@ -565,6 +724,59 @@ export const setInventoryAvailability = (
     method: "PUT",
     body: JSON.stringify({ isAvailable }),
   });
+
+export type BottleFavoriteDto = {
+  favoriteId: number;
+  barId: number;
+  barInventoryId: number;
+  bottleCatalogueId: number;
+  brandName: string;
+  productName: string;
+  category: string;
+  subCategory?: string | null;
+  originCountry?: string | null;
+  alcoholContentPct?: number | null;
+  defaultVolumeMl: number;
+  imageUrl?: string | null;
+  tastingNotes?: string | null;
+  sellingPrice: number;
+  costPrice?: number | null;
+  volume750MlAvailable: boolean;
+  volume1000MlAvailable: boolean;
+  bottlesInStock: number;
+  bottlesCommitted: number;
+  bottlesAvailableForPurchase: number;
+  lowStockThreshold: number;
+  isAvailable: boolean;
+  stockState: InventoryStockState;
+  favoritedAtUtc: string;
+};
+
+export const listBottleFavorites = (barId: number) => {
+  assertValidBarId(barId);
+  return request<BottleFavoriteDto[]>(`/api/v1/bars/${barId}/bottle-favorites`);
+};
+
+export const favoriteBottle = (barId: number, bottleCatalogueId: number) => {
+  assertValidBarId(barId);
+  if (!Number.isInteger(bottleCatalogueId) || bottleCatalogueId <= 0) {
+    throw new Error(`Invalid bottleCatalogueId: ${bottleCatalogueId}`);
+  }
+  return request<BottleFavoriteDto>(
+    `/api/v1/bars/${barId}/bottle-favorites/${bottleCatalogueId}`,
+    { method: "POST" },
+  );
+};
+
+export const unfavoriteBottle = (barId: number, bottleCatalogueId: number) => {
+  assertValidBarId(barId);
+  if (!Number.isInteger(bottleCatalogueId) || bottleCatalogueId <= 0) {
+    throw new Error(`Invalid bottleCatalogueId: ${bottleCatalogueId}`);
+  }
+  return request<void>(`/api/v1/bars/${barId}/bottle-favorites/${bottleCatalogueId}`, {
+    method: "DELETE",
+  });
+};
 
 export type BottleCatalogueSearchHit = {
   id: number;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { setActiveBarDetails } from "@/lib/active-bar";
+import { clearActiveBarId, setActiveBarDetails } from "@/lib/active-bar";
 import {
   ApiError,
   getDashboard,
@@ -87,6 +87,13 @@ export default function DashboardPage() {
       try {
         bar = await getBarDetails();
         if (bar) {
+          if (!bar.isEmailVerified) {
+            clearActiveBarId();
+            setError(
+              "Your bar email is not verified yet. Please check your inbox and verify the email before accessing the dashboard.",
+            );
+            return;
+          }
           setBarId(bar.barId);
           setBarName(bar.businessName);
           setActiveBarDetails(bar);

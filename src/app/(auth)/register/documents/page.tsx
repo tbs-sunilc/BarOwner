@@ -110,7 +110,7 @@ export default function DocumentsPage() {
       <RegistrationStepper current="Documents" />
 
       <div className="mb-2 rounded-md border border-accent/30 bg-accent-tint px-3 py-1.5 text-xs text-accent-lo">
-        All documents required for verification. Your bar goes live within 48 hours of admin approval.
+        All documents required for verification. A verification email will be sent to your contact address, and your bar goes live within 48 hours of admin approval.
       </div>
       {errorBanner && <div className="mb-4"><ErrorBanner>{errorBanner}</ErrorBanner></div>}
 

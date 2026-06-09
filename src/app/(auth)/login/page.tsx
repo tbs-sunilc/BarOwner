@@ -2,17 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import {
   ApiError,
   getBarDetails,
   getDashboard,
-  requestOwnerOtp,
-  verifyOwnerOtp,
+  loginOwner,
   loginStaff,
   type BarDetails,
-  type RegisterOtpResponse,
   type VerifyOtpResponse,
   type StaffLoginResponse,
 } from "@/lib/api-client";
@@ -21,11 +19,10 @@ import {
   setActiveBarDetails,
   setActiveBarId,
 } from "@/lib/active-bar";
-import { saveKycStatus, parseKycStatusFromApi } from "@/lib/kyc-status";
+import { clearKycStatus, saveKycStatus, parseKycStatusFromApi } from "@/lib/kyc-status";
 
-const MOBILE_REGEX = /^[6-9]\d{9}$/;
-
-type Step = "details" | "otp";
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 export default function BarOwnerLoginPage() {
   const router = useRouter();
@@ -33,31 +30,25 @@ export default function BarOwnerLoginPage() {
   const [staffSessionNotice, setStaffSessionNotice] = useState<string | null>(
     null,
   );
-  const [step, setStep] = useState<Step>("details");
-  const [fullName, setFullName] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpMeta, setOtpMeta] = useState<RegisterOtpResponse | null>(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const normalizedMobile = mobileNumber.replace(/\D/g, "").slice(0, 10);
-  const otpLength =
-    otpMeta && otpMeta.otpLength >= 4 && otpMeta.otpLength <= 8
-      ? otpMeta.otpLength
-      : 6;
-
-  const detailsValid = useMemo(
-    () => fullName.trim().length >= 2 && MOBILE_REGEX.test(normalizedMobile),
-    [fullName, normalizedMobile],
-  );
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("staff") === "1") setIsFlipped(true);
+    const isStaffMode = params.get("staff") === "1";
+    if (isStaffMode) setIsFlipped(true);
+    if (params.get("reset") === "1") {
+      const resetMessage = "Your password has been reset. Please sign in with the new password.";
+      if (isStaffMode) {
+        setStaffSessionNotice(resetMessage);
+      } else {
+        setNotice(resetMessage);
+      }
+    }
     const reason = params.get("reason");
     if (reason === "expired") {
       setStaffSessionNotice(
@@ -68,196 +59,100 @@ export default function BarOwnerLoginPage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = window.setInterval(() => {
-      setCooldown((seconds) => Math.max(0, seconds - 1));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [cooldown]);
-
-  async function handleRequestOtp(e?: React.FormEvent) {
-    e?.preventDefault();
+  async function handleOwnerLogin(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
     setNotice(null);
 
-    if (!detailsValid) {
-      setError(
-        "Enter your full name and a valid 10-digit registered mobile number.",
-      );
+    const normalizedEmail = email.trim();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
 
     setBusy(true);
     try {
-      const response = await requestOwnerOtp({
-        fullName: fullName.trim(),
-        mobileNumber: normalizedMobile,
+      const response = await loginOwner({
+        email: normalizedEmail,
+        password,
       });
+      await handleSuccessfulOwnerLogin(response);
+    } catch (err) {
+      setError(readApiMessage(err, "Invalid email or password. Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      if (!response.isExistingAccount) {
-        setNotice(
-          "This mobile number is not registered as a bar owner. Please register your bar first.",
-        );
-        setStep("details");
-        return;
+  async function handleSuccessfulOwnerLogin(response: VerifyOtpResponse) {
+    clearActiveBarId();
+    clearKycStatus();
+    persistOwnerSession(response);
+
+    if (response.user.mustResetPassword) {
+      router.replace("/change-password");
+      return;
+    }
+
+    const kycData = parseKycStatusFromApi(
+      response.user.kycStatus,
+      response.user.kycRejectionReason,
+    );
+
+    if (kycData) {
+      saveKycStatus(kycData);
+
+      try {
+        const bar = await getBarDetails();
+        if (!bar.isEmailVerified) {
+          clearActiveBarId();
+          setNotice(getBarAccessMessage(bar));
+          return;
+        }
+        persistBarDetails(bar);
+
+        const dashboard = await getDashboard(bar.barId);
+        if (dashboard.subscription) {
+          router.replace("/dashboard");
+          return;
+        }
+      } catch {
+        if (kycData.status === "user_approved") {
+          clearActiveBarId();
+          router.replace("/register/kyc-status");
+          return;
+        }
       }
 
-      setOtpMeta(response);
-      setOtp(response.otpLength.toString());
-      setCooldown(response.resendCooldownSeconds || 30);
-      setStep("otp");
+      router.replace("/register/kyc-status");
+      return;
+    }
+
+    let bar: BarDetails;
+    try {
+      bar = await getBarDetails();
     } catch (err) {
       setError(
         readApiMessage(
           err,
-          "Could not send OTP. Please check the mobile number and try again.",
+          "Login succeeded, but we could not load your bar details. Please try again.",
         ),
       );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /*async function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setNotice(null);
-
-    if (otp.length !== otpLength) {
-      setError(`Enter the ${otpLength}-digit OTP sent to your registered mobile number.`);
       return;
     }
 
-    setBusy(true);
-    try {
-      const response = await verifyOwnerOtp({ mobileNumber: normalizedMobile, otp });
-      persistOwnerSession(response);
-
-      // Check KYC status
-      const kycData = parseKycStatusFromApi(response.user.kycStatus, response.user.kycRejectionReason);
-      if (kycData) {
-        saveKycStatus(kycData);
-        // Redirect to KYC status page (user cannot proceed without KYC approval)
-        router.replace('/register/kyc-status');
-        return;
-      }
-
-      let bar: BarDetails;
-      try {
-        bar = await getBarDetails();
-      } catch (err) {
-        setError(readApiMessage(err, 'OTP verified, but we could not load your bar details. Please try again.'));
-        return;
-      }
-
-      if (!bar.isVerified || !bar.isActive) {
-        clearActiveBarId();
-        setNotice(getBarAccessMessage(bar));
-        return;
-      }
-
-      persistBarDetails(bar);
-      router.replace('/inventory');
-    } catch (err) {
-      setError(readApiMessage(err, 'Invalid or expired OTP. Please try again.'));
-    } finally {
-      setBusy(false);
-    }
-  }
-*/
-
-  async function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setNotice(null);
-
-    if (otp.length !== otpLength) {
-      setError(
-        `Enter the ${otpLength}-digit OTP sent to your registered mobile number.`,
-      );
+    if (!bar.isEmailVerified || !bar.isVerified || !bar.isActive) {
+      clearActiveBarId();
+      setNotice(getBarAccessMessage(bar));
       return;
     }
 
-    setBusy(true);
-    try {
-      const response = await verifyOwnerOtp({
-        mobileNumber: normalizedMobile,
-        otp,
-        test: false,
-      });
-      persistOwnerSession(response);
-
-      // Check KYC status from API response
-      const kycData = parseKycStatusFromApi(
-        response.user.kycStatus,
-        response.user.kycRejectionReason,
-      );
-
-      if (kycData) {
-        saveKycStatus(kycData);
-
-        // Try to get bar details
-        try {
-          const bar = await getBarDetails();
-          persistBarDetails(bar);
-
-          // If bar exists, check subscription
-          const dashboard = await getDashboard(bar.barId);
-          if (dashboard.subscription) {
-            router.replace("/dashboard");
-            return;
-          }
-        } catch (barErr) {
-          // No bar found (204 No Content) - check if user KYC is approved
-          if (kycData.status === "user_approved") {
-            // User verified but no bar registered
-            router.replace("/register/kyc-status");
-            return;
-          }
-        }
-
-        // Redirect to KYC status page
-        router.replace("/register/kyc-status");
-        return;
-      }
-
-      // Fallback: try to get bar details directly
-      let bar: BarDetails;
-      try {
-        bar = await getBarDetails();
-      } catch (err) {
-        setError(
-          readApiMessage(
-            err,
-            "OTP verified, but we could not load your bar details. Please try again.",
-          ),
-        );
-        return;
-      }
-
-      if (!bar.isVerified || !bar.isActive) {
-        clearActiveBarId();
-        setNotice(getBarAccessMessage(bar));
-        return;
-      }
-
-      persistBarDetails(bar);
-      router.replace("/inventory");
-    } catch (err) {
-      setError(
-        readApiMessage(err, "Invalid or expired OTP. Please try again."),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function backToDetails() {
-    setStep("details");
-    setOtp("");
-    setError(null);
-    setNotice(null);
+    persistBarDetails(bar);
+    router.replace("/inventory");
   }
 
   return (
@@ -282,153 +177,88 @@ export default function BarOwnerLoginPage() {
 
             <header className="mb-6">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
-                Secure OTP sign-in
+                Secure email sign-in
               </p>
               <h1 className="mt-2 font-display text-4xl leading-tight text-ink">
                 Owner Login
               </h1>
               <span className="gold-rule mb-3 mt-3" aria-hidden="true" />
               <p className="text-sm text-muted">
-                Verify your registered owner mobile number to access the
+                Use your registered owner email and password to access the
                 dashboard.
               </p>
             </header>
 
-            {step === "details" ? (
-              <form
-                onSubmit={handleRequestOtp}
-                className="space-y-4"
-                noValidate
-              >
-                <div>
-                  <label htmlFor="fullName" className="field-label">
-                    Full name
-                  </label>
-                  <input
-                    id="fullName"
-                    type="text"
-                    autoComplete="name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    autoFocus
-                    className="input"
-                    placeholder="Avinash Kumar"
-                  />
-                </div>
+            <form onSubmit={handleOwnerLogin} className="space-y-4" noValidate>
+              <div>
+                <label htmlFor="ownerEmail" className="field-label">
+                  Email address
+                </label>
+                <input
+                  id="ownerEmail"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                  className="input"
+                  placeholder="owner@bar.com"
+                />
+              </div>
 
-                <div>
-                  <label htmlFor="mobileNumber" className="field-label">
-                    Registered mobile number
-                  </label>
-                  <input
-                    id="mobileNumber"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    value={mobileNumber}
-                    onChange={(e) =>
-                      setMobileNumber(
-                        e.target.value.replace(/\D/g, "").slice(0, 10),
-                      )
-                    }
-                    required
-                    className="input"
-                    placeholder="9876543210"
-                  />
-                </div>
-
-                {error && <ErrorBanner>{error}</ErrorBanner>}
-                {notice && (
-                  <NoticeCard
-                    title="Mobile number not registered"
-                    message={notice}
-                    actionHref="/register"
-                    actionText="Register your bar"
-                  />
-                )}
-
-                <button
-                  type="submit"
-                  disabled={busy || !detailsValid}
-                  className="btn btn-primary w-full"
-                >
-                  {busy ? "Sending OTP..." : "Send OTP"}
-                </button>
-
-                <div className="pt-2 text-center">
-                  <p className="mb-2 text-xs text-soft">New bar owner?</p>
-                  <Link href="/register" className="btn btn-ghost btn-sm">
-                    Register your bar
+              <div>
+                <label htmlFor="ownerPassword" className="field-label">
+                  Password
+                </label>
+                <input
+                  id="ownerPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="input"
+                  placeholder="••••••••"
+                />
+                <div className="mt-2 flex justify-end">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold text-accent-lo transition hover:text-ink"
+                  >
+                    Forgot password?
                   </Link>
                 </div>
-                <p className="pt-2 text-center text-xs text-soft">
-                  Trouble signing in? Contact support.
-                </p>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4" noValidate>
-                <div className="rounded-lg border border-strong bg-accent-tint/50 px-4 py-3 text-sm text-muted">
-                  OTP sent to{" "}
-                  <span className="font-semibold text-ink">
-                    {maskMobile(normalizedMobile)}
-                  </span>
-                </div>
+              </div>
 
-                <div>
-                  <label htmlFor="otp" className="field-label">
-                    Enter OTP
-                  </label>
-                  <input
-                    id="otp"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(
-                        e.target.value.replace(/\D/g, "").slice(0, otpLength),
-                      )
-                    }
-                    required
-                    autoFocus
-                    className="input text-center font-numeric text-xl tracking-[0.35em]"
-                    placeholder="000000"
-                  />
-                </div>
+              {error && <ErrorBanner>{error}</ErrorBanner>}
+              {notice && (
+                <NoticeCard
+                  title="Bar access pending"
+                  message={notice}
+                  actionHref="/register"
+                  actionText="Register your bar"
+                />
+              )}
 
-                {error && <ErrorBanner>{error}</ErrorBanner>}
-                {notice && (
-                  <NoticeCard title="Bar access pending" message={notice} />
-                )}
+              <button
+                type="submit"
+                disabled={busy}
+                className="btn btn-primary w-full"
+              >
+                {busy ? "Signing in..." : "Sign in"}
+              </button>
 
-                <button
-                  type="submit"
-                  disabled={busy || otp.length !== otpLength}
-                  className="btn btn-primary w-full"
-                >
-                  {busy ? "Verifying..." : "Verify & Continue"}
-                </button>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm">
-                  <button
-                    type="button"
-                    onClick={backToDetails}
-                    className="btn btn-ghost btn-sm"
-                  >
-                    Change number
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRequestOtp()}
-                    disabled={busy || cooldown > 0}
-                    className="btn btn-ghost btn-sm"
-                  >
-                    {cooldown > 0 ? `Resend OTP in ${cooldown}s` : "Resend OTP"}
-                  </button>
-                </div>
-              </form>
-            )}
+              <div className="pt-2 text-center">
+                <p className="mb-2 text-xs text-soft">New bar owner?</p>
+                <Link href="/register" className="btn btn-ghost btn-sm">
+                  Register your bar
+                </Link>
+              </div>
+              <p className="pt-2 text-center text-xs text-soft">
+                Trouble signing in? Contact support.
+              </p>
+            </form>
 
             <div className="mt-8 pt-6 border-t border-strong/30 text-center">
               <p className="text-[10px] font-bold uppercase tracking-widest text-soft mb-3">
@@ -468,38 +298,41 @@ function StaffLoginForm({
   sessionNotice?: string | null;
 }) {
   const router = useRouter();
-  const [mobile, setMobile] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError(null);
 
-    // Normalize mobile number
-    let finalMobile = mobile.trim().replace(/\s/g, "");
-    // If it's a simple 10-digit number, prepend +91 to match how staff are stored in the DB
-    if (/^[6-9]\d{9}$/.test(finalMobile)) {
-      finalMobile = `+91${finalMobile}`;
-    }
-
-    if (finalMobile.length < 10 || password.length < 4) {
-      setError("Please enter a valid mobile number and password.");
-      setBusy(false);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setError("Please enter a valid email address and password.");
       return;
     }
 
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+
+    setBusy(true);
     try {
       const response = await loginStaff({
-        mobileNumber: finalMobile,
+        email: normalizedEmail,
         password,
       });
       persistStaffSession(response);
+      if (response.mustResetPassword) {
+        router.replace("/change-password?staff=1");
+        return;
+      }
       router.push("/floor");
     } catch (err) {
-      setError(readApiMessage(err, "Invalid mobile number or password."));
+      setError(readApiMessage(err, "Invalid email or password."));
+    } finally {
       setBusy(false);
     }
   }
@@ -529,7 +362,7 @@ function StaffLoginForm({
         </h1>
         <span className="gold-rule mb-3 mt-3" aria-hidden="true" />
         <p className="text-sm text-muted">
-          Enter your registered mobile number and password to begin your shift.
+          Enter your registered email address and password to begin your shift.
         </p>
       </header>
 
@@ -541,18 +374,20 @@ function StaffLoginForm({
 
       <form onSubmit={handleLogin} className="space-y-4" noValidate>
         <div>
-          <label htmlFor="staffMobile" className="field-label">
-            Mobile number
+          <label htmlFor="staffEmail" className="field-label">
+            Email address
           </label>
           <input
-            id="staffMobile"
-            type="tel"
-            inputMode="numeric"
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
+            id="staffEmail"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            spellCheck={false}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
             className="input"
-            placeholder="+91 9876543210"
+            placeholder="staff@bar.com"
           />
         </div>
 
@@ -563,12 +398,21 @@ function StaffLoginForm({
           <input
             id="staffPassword"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             className="input"
             placeholder="••••••••"
           />
+          <div className="mt-2 flex justify-end">
+            <Link
+              href="/forgot-password?staff=1"
+              className="text-xs font-semibold text-accent-lo transition hover:text-ink"
+            >
+              Forgot password?
+            </Link>
+          </div>
         </div>
 
         {error && <ErrorBanner>{error}</ErrorBanner>}
@@ -651,9 +495,13 @@ function persistStaffSession(response: StaffLoginResponse): void {
     fullName: response.fullName,
     role: response.role,
     barId: response.barId,
+    email: response.email ?? null,
+    mustResetPassword: response.mustResetPassword,
   };
   window.sessionStorage.setItem("sipsave-staff-user", JSON.stringify(userObj));
 
+  if (response.email)
+    window.sessionStorage.setItem("sipsave-staff-email", response.email);
   if (response.fullName)
     window.sessionStorage.setItem("sipsave-staff-full-name", response.fullName);
   if (response.barId && response.barId > 0) setActiveBarId(response.barId);
@@ -666,6 +514,9 @@ function persistBarDetails(bar: BarDetails): void {
 
 function getBarAccessMessage(bar: BarDetails): string {
   const status = bar.verificationQueueMessage?.trim();
+  if (!bar.isEmailVerified) {
+    return `${bar.businessName} email is not verified yet. Please verify the email sent to your registered inbox before opening the owner dashboard.`;
+  }
   if (!bar.isVerified) {
     return (
       status ||
@@ -718,9 +569,4 @@ function readApiMessage(err: unknown, fallback: string): string {
     if (typeof record.title === "string") return record.title;
   }
   return err.message || fallback;
-}
-
-function maskMobile(mobile: string): string {
-  if (mobile.length < 4) return mobile;
-  return `+91 XXXXX${mobile.slice(-5)}`;
 }

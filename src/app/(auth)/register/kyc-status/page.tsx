@@ -185,7 +185,7 @@ export default function KycStatusPage() {
             if (dashboard.subscription) {
               setHasSubscription(true);
               const subStatus = dashboard.subscription.status;
-              if (bar.isVerified && (bar.isActive || subStatus === 'Active' || subStatus === 'Trial')) {
+              if (bar.isEmailVerified && bar.isVerified && (bar.isActive || subStatus === 'Active' || subStatus === 'Trial')) {
                 router.replace('/inventory');
                 return;
               }
@@ -244,8 +244,34 @@ export default function KycStatusPage() {
     );
   }
 
-  // isVerified === true and isActive === false and no subscription → Choose Plan
-  const showChoosePlan = barDetails?.isVerified === true && barDetails?.isActive === false && !hasSubscription;
+  if (barDetails && !barDetails.isEmailVerified) {
+    return (
+      <div className="auth-fit auth-compact mx-auto w-full max-w-md text-center">
+        <div className="mb-3 text-4xl" aria-hidden="true">Email</div>
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-accent-lo">
+          Email verification pending
+        </p>
+        <h1 className="mt-1 font-display text-3xl leading-tight text-ink">
+          Verify Your Bar Email
+        </h1>
+        <span className="gold-rule mb-2 mt-2" aria-hidden="true" />
+        <p className="text-sm leading-relaxed text-muted">
+          We have sent a verification link to the registered email address for {barDetails.businessName}. Please verify that email before continuing to subscription or the dashboard.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => router.push('/login')}
+          className="btn btn-primary mt-6 w-full"
+        >
+          Back to Login
+        </button>
+      </div>
+    );
+  }
+
+  // isEmailVerified === true, isVerified === true, and isActive === false with no subscription → Choose Plan
+  const showChoosePlan = barDetails?.isEmailVerified === true && barDetails?.isVerified === true && barDetails?.isActive === false && !hasSubscription;
 
   return (
     <div className="auth-fit auth-compact mx-auto w-full max-w-md text-center">

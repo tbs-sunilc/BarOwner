@@ -74,7 +74,7 @@ export default function AddStaffPage() {
     const payload: CreateStaffPayload = {
       fullName: fullName.trim(),
       mobileNumber: mobile.trim(),
-      email: email.trim() || null,
+      email: email.trim().toLowerCase(),
       password,
       role,
       sendEmail,
@@ -108,14 +108,17 @@ export default function AddStaffPage() {
                    className="w-full rounded-lg border-slate-300 text-sm" />
           </Field>
 
-          <Field label="Mobile number (tablet login)">
+          <Field label="Mobile number">
             <input value={mobile} onChange={(e) => setMobile(e.target.value)}
                    placeholder="+91 9876543210"
                    className="w-full rounded-lg border-slate-300 text-sm" />
           </Field>
 
-          <Field label="Email (optional)">
+          <Field label="Email address (used for login)">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200}
+                   required
+                   autoComplete="email"
+                   placeholder="staff@bar.com"
                    className="w-full rounded-lg border-slate-300 text-sm" />
             <div className="mt-3 flex items-center gap-3">
               <input

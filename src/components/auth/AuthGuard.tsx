@@ -9,6 +9,7 @@ import {
   STAFF_TOKEN_KEY,
   clearStaffSession,
   isStaffSessionValid,
+  getStoredStaffUser,
   redirectToStaffLogin,
 } from "@/lib/staff-session";
 
@@ -50,6 +51,19 @@ function isOwnerTokenExpired(): boolean {
   const expiresAt = getOwnerTokenExpiry();
 
   return expiresAt !== null ? Date.now() >= expiresAt.getTime() : false;
+}
+
+function getStoredOwnerUser(): { mustResetPassword?: boolean } | null {
+  if (typeof window === "undefined") return null;
+
+  const raw = window.sessionStorage.getItem("sipsave-barowner-user");
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as { mustResetPassword?: boolean };
+  } catch {
+    return null;
+  }
 }
 
 export default function AuthGuard({
@@ -184,6 +198,14 @@ export default function AuthGuard({
           return;
         }
 
+        const staffUser = getStoredStaffUser();
+        if (staffUser?.mustResetPassword) {
+          if (window.location.pathname !== "/change-password") {
+            router.replace("/change-password?staff=1");
+          }
+          return;
+        }
+
         setChecked(true);
 
         return;
@@ -192,6 +214,14 @@ export default function AuthGuard({
       /**
        * OWNER TOKEN EXPIRED
        */
+      const ownerUser = getStoredOwnerUser();
+      if (ownerUser?.mustResetPassword) {
+        if (window.location.pathname !== "/change-password") {
+          router.replace("/change-password");
+        }
+        return;
+      }
+
       if (isOwnerTokenExpired()) {
         const hasRefreshToken = Boolean(
           window.sessionStorage.getItem("sipsave-barowner-refresh-token"),
@@ -343,6 +373,15 @@ export default function AuthGuard({
             "sipsave-barowner-full-name",
             user.fullName,
           );
+        }
+
+        if (user.mustResetPassword) {
+          popupShownRef.current = false;
+          setShowRefreshPopup(false);
+          setRefreshing(false);
+          setChecked(false);
+          router.replace("/change-password");
+          return;
         }
       }
 
