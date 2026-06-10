@@ -204,7 +204,10 @@ export default function SubscriptionPage() {
 
   const savingsPercent = calculateSavings();
 
-  const performSubscription = async (plan: SubscriptionPlanDto) => {
+  const performSubscription = async (
+    plan: SubscriptionPlanDto,
+    paymentWindow: Window | null,
+  ) => {
     if (resolvingBarId) {
       setSubscriptionError('Please wait while we locate your active bar account.');
       return;
@@ -237,6 +240,18 @@ export default function SubscriptionPage() {
       clearKycStatus();
 
       console.log('Subscription successful:', response);
+      const checkoutUrl = response.checkoutUrl?.trim();
+      if (checkoutUrl) {
+        if (paymentWindow) {
+          paymentWindow.location.href = checkoutUrl;
+        } else {
+          window.location.assign(checkoutUrl);
+          return;
+        }
+      } else if (paymentWindow && !paymentWindow.closed) {
+        paymentWindow.close();
+      }
+
       router.replace('/inventory');
 
     } catch (err) {
@@ -252,11 +267,19 @@ export default function SubscriptionPage() {
       setSubscriptionError('Please select a plan');
       return;
     }
-    await performSubscription(selectedPlan);
+    const paymentWindow =
+      typeof window !== 'undefined'
+        ? window.open('', '_blank', 'noopener,noreferrer')
+        : null;
+    await performSubscription(selectedPlan, paymentWindow);
   };
 
   const handleDirectSubscribe = async (plan: SubscriptionPlanDto) => {
-    await performSubscription(plan);
+    const paymentWindow =
+      typeof window !== 'undefined'
+        ? window.open('', '_blank', 'noopener,noreferrer')
+        : null;
+    await performSubscription(plan, paymentWindow);
   };
 
   return (

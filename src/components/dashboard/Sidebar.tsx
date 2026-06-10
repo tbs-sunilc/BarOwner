@@ -14,6 +14,7 @@ const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?:
   { href: '/dashboard', icon: <IconDashboard />, label: 'Dashboard', exact: true, group: 'core' },
   { href: '/inventory', icon: <IconBottle />, label: 'Inventory', group: 'core' },
   { href: '/wallet-purchases', icon: <IconWallet />, label: 'Wallet Purchases', group: 'core' },
+  //{ href: '/transaction-history', icon: <IconHistory />, label: 'Transaction History', group: 'core' },
   { href: '/tables', icon: <IconTable />, label: 'Tables & QR Codes', group: 'core' },
   { href: '/menu', icon: <IconTable />, label: 'Food Menu', group: 'core' },
   { href: '/staff', icon: <IconUsers />, label: 'Staff Accounts', group: 'core' },
@@ -231,6 +232,10 @@ function IconRevenue() {
 function IconWallet() {
   return <BaseIcon><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" /><path d="M4 8h14" /><path d="M16 12h4v4h-4a2 2 0 0 1 0-4Z" /><path d="M18 14h.01" /></BaseIcon>;
 }
+
+// function IconHistory() {
+//   return <BaseIcon><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /><path d="M12 7v5l3 2" /></BaseIcon>;
+// }
 
 function IconGift() {
   return <BaseIcon><path d="M20 12v8H4v-8" /><path d="M2 7h20v5H2z" /><path d="M12 22V7" /><path d="M12 7H8.8A2.8 2.8 0 1 1 12 3.4z" /><path d="M12 7h3.2A2.8 2.8 0 1 0 12 3.4z" /></BaseIcon>;

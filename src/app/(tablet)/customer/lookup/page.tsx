@@ -5,7 +5,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getActiveBarId } from '@/lib/active-bar';
 import { getTabletState, TabletState, saveTabletState } from '@/lib/tablet-state';
-import { fetchCustomerLookup as lookupCustomerByMobile } from '@/lib/api-client';
+import {
+  ApiError,
+  confirmWalletTopUp,
+  fetchCustomerLookup as lookupCustomerByMobile,
+  initiateWalletTopUp,
+  type WalletVolumeMl,
+} from '@/lib/api-client';
+import { openRazorpayCheckout } from '@/lib/razorpay-checkout';
+import { WalletActionModal } from '@/components/payments/WalletActionModal';
+
+type LookupWallet = NonNullable<TabletState['customerProfile']>['wallets'][number];
+
+const TOP_UP_VOLUMES: WalletVolumeMl[] = [750, 1000];
 
 export default function CustomerLookupPage() {
   const router = useRouter();
@@ -14,6 +26,9 @@ export default function CustomerLookupPage() {
   const [showProfile, setShowProfile] = useState(false);
   const [showNotFound, setShowNotFound] = useState(false);
   const [mobileValue, setMobileValue] = useState('');
+  const [topUpWallet, setTopUpWallet] = useState<LookupWallet | null>(null);
+  const [topUpBusy, setTopUpBusy] = useState(false);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
 
   useEffect(() => {
     setState(getTabletState());
@@ -199,6 +214,76 @@ export default function CustomerLookupPage() {
       // fallback to first pour or a manual serve screen
       const first = state.pourQueue[0];
       router.push(first ? `/serve/${first.id}` : '/serve/5002');
+    }
+  };
+
+  const handleOpenTopUp = (wallet: LookupWallet) => {
+    setTopUpError(null);
+    setTopUpWallet(wallet);
+  };
+
+  const handleCloseTopUp = () => {
+    if (topUpBusy) return;
+    setTopUpWallet(null);
+    setTopUpError(null);
+  };
+
+  const handleConfirmTopUp = async (volumeMl: WalletVolumeMl) => {
+    if (!topUpWallet || !state.customerProfile || topUpBusy) return;
+
+    setTopUpBusy(true);
+    setTopUpError(null);
+    try {
+      const initiation = await initiateWalletTopUp(topUpWallet.id, { volumeMl });
+      const checkout = await openRazorpayCheckout({
+        keyId: initiation.razorpayKeyId,
+        orderId: initiation.razorpayOrderId,
+        amountInPaise: initiation.amountInPaise,
+        currency: initiation.currency,
+        name: initiation.barName,
+        description: `${initiation.bottleBrandName} ${initiation.bottleProductName} • Top up ${initiation.volumeMl}ml`,
+        prefill: {
+          name: state.customerProfile.name,
+          contact: state.customerProfile.mobile,
+        },
+        notes: {
+          paymentId: String(initiation.paymentId),
+          walletId: String(topUpWallet.id),
+        },
+      });
+
+      if (!checkout) {
+        setTopUpError('Checkout was closed before payment was completed.');
+        return;
+      }
+
+      const confirmed = await confirmWalletTopUp(topUpWallet.id, {
+        razorpayOrderId: checkout.razorpay_order_id,
+        razorpayPaymentId: checkout.razorpay_payment_id,
+        razorpaySignature: checkout.razorpay_signature,
+      });
+
+      setTopUpWallet(null);
+      setTopUpError(null);
+      (window as any).toast?.(
+        `Top-up complete. Wallet now has ${confirmed.newRemainingMl}ml remaining.`,
+        's',
+      );
+
+      try {
+        const refreshedProfile = await fetchCustomerLookup(state.customerProfile.mobile);
+        if (refreshedProfile) {
+          const nextState = { ...state, customerProfile: refreshedProfile };
+          setState(nextState);
+          saveTabletState(nextState);
+        }
+      } catch (refreshError) {
+        console.warn('[CustomerLookup] post-top-up refresh failed', refreshError);
+      }
+    } catch (error) {
+      setTopUpError(error instanceof ApiError ? error.message : error instanceof Error ? error.message : 'Payment failed.');
+    } finally {
+      setTopUpBusy(false);
     }
   };
 
@@ -401,6 +486,16 @@ export default function CustomerLookupPage() {
                           >
                             Serve →
                           </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenTopUp(wallet);
+                            }}
+                            disabled={topUpBusy}
+                            className="btn-tablet btn-tablet-a !py-2 !px-4 !text-[10px] font-black uppercase tracking-widest disabled:opacity-60 disabled:cursor-wait"
+                          >
+                            Top up
+                          </button>
                         </div>
                       </div>
                     );
@@ -419,6 +514,22 @@ export default function CustomerLookupPage() {
           )}
         </div>
       </div>
+
+      <WalletActionModal
+        open={!!topUpWallet}
+        title={topUpWallet ? `Top up ${topUpWallet.name}` : 'Top up wallet'}
+        description={topUpWallet && state.customerProfile
+          ? `${state.customerProfile.name} • Current balance ${topUpWallet.balance}ml of ${topUpWallet.total}ml\nChoose a volume to open the secure Razorpay checkout.`
+          : 'Choose a volume to open the secure Razorpay checkout.'}
+        confirmLabel="Open Razorpay"
+        busy={topUpBusy}
+        errorMessage={topUpError}
+        availableVolumes={TOP_UP_VOLUMES}
+        defaultVolumeMl={750}
+        tone="emerald"
+        onClose={handleCloseTopUp}
+        onConfirm={handleConfirmTopUp}
+      />
     </div>
   );
 }

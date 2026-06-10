@@ -105,9 +105,19 @@ function safeParse(s: string): unknown {
   }
 }
 
+function assertValidPositiveInt(value: number, name: string): void {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${name}: ${value}`);
+  }
+}
+
 function assertValidBarId(barId: number): void {
-  if (!Number.isInteger(barId) || barId <= 0) {
-    throw new Error(`Invalid barId: ${barId}`);
+  assertValidPositiveInt(barId, "barId");
+}
+
+function assertValidWalletVolume(volumeMl: number): asserts volumeMl is WalletVolumeMl {
+  if (volumeMl !== 750 && volumeMl !== 1000) {
+    throw new Error(`Invalid volumeMl: ${volumeMl}`);
   }
 }
 
@@ -416,11 +426,15 @@ export type SubscribeToPlanPayload = {
 
 export type SubscribeToPlanResponse = {
   subscriptionId: number;
-  planId: number;
-  billingCycle: string;
+  razorpaySubscriptionId: string;
   status: string;
-  trialEndsAtUtc?: string | null;
-  nextBillingDateUtc?: string | null;
+  planName: string;
+  billingCycle: string;
+  priceInRupees: number;
+  trialEndsAtUtc: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  checkoutUrl: string | null;
 };
 
 export const subscribeToPlan = (
@@ -430,6 +444,11 @@ export const subscribeToPlan = (
   request<SubscribeToPlanResponse>(`/api/v1/bars/${barId}/subscription`, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+
+export const cancelSubscription = (barId: number) =>
+  request<void>(`/api/v1/bars/${barId}/subscription`, {
+    method: "DELETE",
   });
 
 export const simulateSubscriptionPaymentFailure = (barId: number) => {
@@ -445,6 +464,137 @@ export const simulateSubscriptionRestore = (barId: number) => {
   return request<SubscriptionStatusDto>(
     `/api/v1/bars/${barId}/subscription/qa/restore`,
     { method: "POST" },
+  );
+};
+
+// ---------------------------------------------------------------------------
+//  Wallet checkout (Razorpay)
+// ---------------------------------------------------------------------------
+
+export type WalletVolumeMl = 750 | 1000;
+
+export type InitiateWalletPurchaseRequest = {
+  barId: number;
+  bottleCatalogueId: number;
+  volumeMl: WalletVolumeMl;
+};
+
+export type InitiateWalletPurchaseResponse = {
+  paymentId: number;
+  razorpayOrderId: string;
+  razorpayKeyId: string;
+  amountInPaise: number;
+  originalAmountInPaise: number;
+  discountInPaise: number;
+  appliedOfferTitle: string | null;
+  currency: string;
+  barName: string;
+  bottleBrandName: string;
+  bottleProductName: string;
+  volumeMl: WalletVolumeMl;
+};
+
+export type ConfirmWalletPurchaseRequest = {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+};
+
+export type ConfirmWalletPurchaseResponse = {
+  walletId: number;
+  paymentId: number;
+  receiptNumber: string;
+  barName: string;
+  bottleBrandName: string;
+  bottleProductName: string;
+  purchasedVolumeMl: number;
+  remainingVolumeMl: number;
+  sellingPriceRupees: number;
+  expiresOn: string | null;
+  isIdempotentReplay: boolean;
+};
+
+export const initiateWalletPurchase = (
+  payload: InitiateWalletPurchaseRequest,
+) => {
+  assertValidPositiveInt(payload.barId, "barId");
+  assertValidPositiveInt(payload.bottleCatalogueId, "bottleCatalogueId");
+  assertValidWalletVolume(payload.volumeMl);
+  return request<InitiateWalletPurchaseResponse>("/api/v1/wallets/initiate-purchase", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const confirmWalletPurchase = (
+  payload: ConfirmWalletPurchaseRequest,
+) =>
+  request<ConfirmWalletPurchaseResponse>("/api/v1/wallets/confirm-payment", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type InitiateWalletTopUpRequest = {
+  volumeMl: WalletVolumeMl;
+};
+
+export type InitiateWalletTopUpResponse = {
+  paymentId: number;
+  razorpayOrderId: string;
+  razorpayKeyId: string;
+  amountInPaise: number;
+  currency: string;
+  barName: string;
+  bottleBrandName: string;
+  bottleProductName: string;
+  currentRemainingMl: number;
+  volumeMl: WalletVolumeMl;
+  currentSellingPrice: number;
+};
+
+export type ConfirmWalletTopUpRequest = {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+};
+
+export type ConfirmWalletTopUpResponse = {
+  walletId: number;
+  paymentId: number;
+  receiptNumber: string;
+  previousRemainingMl: number;
+  addedMl: number;
+  newRemainingMl: number;
+  newPurchasedMl: number;
+  isIdempotentReplay: boolean;
+};
+
+export const initiateWalletTopUp = (
+  walletId: number,
+  payload: InitiateWalletTopUpRequest,
+) => {
+  assertValidPositiveInt(walletId, "walletId");
+  assertValidWalletVolume(payload.volumeMl);
+  return request<InitiateWalletTopUpResponse>(
+    `/api/v1/wallets/${walletId}/topup/initiate`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+};
+
+export const confirmWalletTopUp = (
+  walletId: number,
+  payload: ConfirmWalletTopUpRequest,
+) => {
+  assertValidPositiveInt(walletId, "walletId");
+  return request<ConfirmWalletTopUpResponse>(
+    `/api/v1/wallets/${walletId}/topup/confirm`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
   );
 };
 
@@ -1406,6 +1556,44 @@ export const getRevenueReport = (
   if (to) q.set("to", to);
   return request<RevenueReportDto>(
     `/api/v1/bars/${barId}/revenue?${q.toString()}`,
+  );
+};
+
+// ---- User wallet history ----
+
+export type WalletTransactionHistoryItemDto = {
+  paymentId: number;
+  walletId: number | null;
+  purpose: string;
+  displayTitle: string;
+  barId: number | null;
+  barName: string;
+  barCity: string;
+  bottleCatalogueId: number | null;
+  bottleBrandName: string | null;
+  bottleProductName: string | null;
+  volumeMl: number | null;
+  amountInPaise: number;
+  currency: string;
+  status: string;
+  statusLabel: string | null;
+  statusMessage: string | null;
+  paymentMethod: string | null;
+  occurredAtUtc: string;
+  createdAtUtc: string;
+  capturedAtUtc: string | null;
+  refundedAtUtc: string | null;
+};
+
+export const listTransactionHistory = (
+  status: string | null = null,
+  skip = 0,
+  take = 20,
+) => {
+  const q = new URLSearchParams({ skip: String(skip), take: String(take) });
+  if (status && status !== "all") q.set("status", status);
+  return request<WalletTransactionHistoryItemDto[]>(
+    `/api/v1/wallets/transactions/history?${q.toString()}`,
   );
 };
 

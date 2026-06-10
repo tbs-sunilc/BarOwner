@@ -17,16 +17,21 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ApiError,
+  confirmWalletPurchase,
   getBarDetails,
+  initiateWalletPurchase,
   listInventory,
   listInventoryCategories,
   setInventoryAvailability,
   type BarInventoryCategory,
   type InventoryItem,
+  type WalletVolumeMl,
 } from '@/lib/api-client';
+import { openRazorpayCheckout } from '@/lib/razorpay-checkout';
 import { getActiveBarId, setActiveBarDetails, setActiveBarId } from '@/lib/active-bar';
 import { EditBottleModal } from '@/components/inventory/EditBottleModal';
 import { ManageCategoriesModal } from '@/components/inventory/ManageCategoriesModal';
+import { WalletActionModal } from '@/components/payments/WalletActionModal';
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -34,6 +39,7 @@ export default function InventoryPage() {
   const [barId, setBarId] = useState<number | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [purchaseTarget, setPurchaseTarget] = useState<InventoryItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +47,8 @@ export default function InventoryPage() {
   const [barCategories, setBarCategories] = useState<BarInventoryCategory[]>([]);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [pendingToggleId, setPendingToggleId] = useState<number | null>(null);
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
 
   // Resolve active bar from token (owner session). Keep URL/storage as fallback for demos.
@@ -138,6 +146,14 @@ export default function InventoryPage() {
     });
   }, [items, searchTerm, categoryId]);
 
+  const purchaseVolumes = useMemo<WalletVolumeMl[]>(() => {
+    if (!purchaseTarget) return [750, 1000];
+    const volumes: WalletVolumeMl[] = [];
+    if (purchaseTarget.volume750MlAvailable) volumes.push(750);
+    if (purchaseTarget.volume1000MlAvailable) volumes.push(1000);
+    return volumes;
+  }, [purchaseTarget]);
+
   // ── Availability toggle (optimistic) ──────────────────────────────────
   async function onToggleAvailability(item: InventoryItem) {
     if (pendingToggleId !== null) return;
@@ -160,6 +176,71 @@ export default function InventoryPage() {
 
   function onEdit(item: InventoryItem) {
     setSelectedItem(item);
+  }
+
+  function onPurchase(item: InventoryItem) {
+    const volumes: WalletVolumeMl[] = [];
+    if (item.volume750MlAvailable) volumes.push(750);
+    if (item.volume1000MlAvailable) volumes.push(1000);
+    if (!item.isAvailable || item.bottlesAvailableForPurchase <= 0 || volumes.length === 0) {
+      setError('This bottle is not available for purchase right now.');
+      return;
+    }
+    setPurchaseError(null);
+    setPurchaseTarget(item);
+  }
+
+  function closePurchaseModal() {
+    if (purchaseBusy) return;
+    setPurchaseTarget(null);
+    setPurchaseError(null);
+  }
+
+  async function onConfirmPurchase(volumeMl: WalletVolumeMl) {
+    if (!barId || !purchaseTarget || purchaseBusy) return;
+
+    setPurchaseBusy(true);
+    setPurchaseError(null);
+    try {
+      const initiation = await initiateWalletPurchase({
+        barId,
+        bottleCatalogueId: purchaseTarget.bottleCatalogueId,
+        volumeMl,
+      });
+
+      const checkout = await openRazorpayCheckout({
+        keyId: initiation.razorpayKeyId,
+        orderId: initiation.razorpayOrderId,
+        amountInPaise: initiation.amountInPaise,
+        currency: initiation.currency,
+        name: initiation.barName,
+        description: `${initiation.bottleBrandName} ${initiation.bottleProductName} • ${initiation.volumeMl}ml`,
+        notes: {
+          paymentId: String(initiation.paymentId),
+          barId: String(barId),
+          bottleCatalogueId: String(purchaseTarget.bottleCatalogueId),
+        },
+      });
+
+      if (!checkout) {
+        setPurchaseError('Checkout was closed before payment was completed.');
+        return;
+      }
+
+      const confirmed = await confirmWalletPurchase({
+        razorpayOrderId: checkout.razorpay_order_id,
+        razorpayPaymentId: checkout.razorpay_payment_id,
+        razorpaySignature: checkout.razorpay_signature,
+      });
+
+      setPurchaseTarget(null);
+      setPurchaseError(null);
+      router.push(`/wallet-purchases/${confirmed.paymentId}`);
+    } catch (ex) {
+      setPurchaseError(ex instanceof ApiError ? ex.message : ex instanceof Error ? ex.message : 'Payment failed.');
+    } finally {
+      setPurchaseBusy(false);
+    }
   }
 
   function onModalUpdated(updated: InventoryItem) {
@@ -329,8 +410,11 @@ export default function InventoryPage() {
                     key={item.id}
                     item={item}
                     pendingToggle={pendingToggleId === item.id}
+                    purchaseBusy={purchaseBusy}
                     onToggle={() => onToggleAvailability(item)}
                     onEdit={() => onEdit(item)}
+                    onPurchase={() => onPurchase(item)}
+                    canPurchase={item.isAvailable && item.bottlesAvailableForPurchase > 0 && (item.volume750MlAvailable || item.volume1000MlAvailable)}
                     categoryNameById={categoryNameById}
                   />
                 ))}
@@ -353,6 +437,20 @@ export default function InventoryPage() {
         isOpen={categoriesOpen}
         onClose={() => setCategoriesOpen(false)}
         onChanged={refresh}
+      />
+
+      <WalletActionModal
+        open={!!purchaseTarget}
+        title={purchaseTarget ? `Sell ${purchaseTarget.brandName}` : 'Sell bottle'}
+        description={purchaseTarget ? `${purchaseTarget.productName}\nChoose the bottle volume before launching Razorpay.` : 'Choose a volume to start the secure checkout.'}
+        confirmLabel="Open Razorpay"
+        busy={purchaseBusy}
+        errorMessage={purchaseError}
+        availableVolumes={purchaseVolumes}
+        defaultVolumeMl={purchaseTarget?.volume750MlAvailable ? 750 : 1000}
+        tone="violet"
+        onClose={closePurchaseModal}
+        onConfirm={onConfirmPurchase}
       />
     </div>
   );
@@ -410,14 +508,20 @@ function InventoryRow({
   item,
   categoryNameById,
   pendingToggle,
+  purchaseBusy,
   onToggle,
   onEdit,
+  onPurchase,
+  canPurchase,
 }: {
   item: InventoryItem;
   categoryNameById: Map<number, string>;
   pendingToggle: boolean;
+  purchaseBusy: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  onPurchase: () => void;
+  canPurchase: boolean;
 }) {
   // Row background per stock state (matches prototype's row tinting).
   const rowBg =
@@ -469,6 +573,22 @@ function InventoryRow({
       </td>
       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
         <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onPurchase}
+            disabled={!canPurchase || purchaseBusy}
+            className={[
+              'px-2.5 py-1 text-xs font-medium rounded border',
+              canPurchase
+                ? 'border-violet-200 text-violet-700 hover:bg-violet-50'
+                : 'border-slate-200 text-slate-400 cursor-not-allowed',
+              purchaseBusy && 'opacity-60 cursor-wait',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            Purchase
+          </button>
           <button
             type="button"
             onClick={onEdit}

@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { getActiveBarId } from '@/lib/active-bar';
 import {
   ApiError,
+  cancelSubscription,
   getDashboard,
   type SubscriptionStatusDto,
 } from '@/lib/api-client';
@@ -26,6 +27,7 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancel, setShowCancel] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
 
   useEffect(() => setBarId(getActiveBarId()), []);
 
@@ -43,6 +45,32 @@ export default function SubscriptionPage() {
       }
     })();
   }, [barId]);
+
+  const reloadSubscription = async () => {
+    if (barId == null) return;
+    const dash = await getDashboard(barId);
+    setSub(dash.subscription);
+    setActiveWallets(dash.kpis.activeWalletCount);
+  };
+
+  const handleCancelPlan = async (_reason?: string, _detail?: string) => {
+    if (barId == null) return;
+
+    try {
+      setCancelBusy(true);
+      await cancelSubscription(barId);
+      setShowCancel(false);
+      try {
+        await reloadSubscription();
+      } catch {
+        setSub(null);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to cancel subscription');
+    } finally {
+      setCancelBusy(false);
+    }
+  };
 
   return (
     <div className="p-8 max-w-4xl">
@@ -81,7 +109,7 @@ export default function SubscriptionPage() {
               <div>
                 <p className="text-xs uppercase tracking-wider text-slate-500">Current plan</p>
                 <h2 className="text-2xl font-bold text-slate-900 mt-1">
-                  {sub ? 'Growth' : 'No active plan'}
+                  {sub ? 'Active plan' : 'No active plan'}
                 </h2>
                 <p className="text-sm text-slate-600 mt-2">
                   {sub ? (
@@ -156,11 +184,10 @@ export default function SubscriptionPage() {
       {showCancel && (
         <CancelSubscriptionModal
           activeWalletCount={activeWallets}
+          busy={cancelBusy}
           onCancel={() => setShowCancel(false)}
-          onConfirm={() => {
-            setShowCancel(false);
-            // Phase 8: POST /api/v1/bars/:barId/subscription/cancel
-            alert('Cancel-subscription endpoint lands in Phase 8.');
+          onConfirm={(reason, detail) => {
+            void handleCancelPlan(reason, detail);
           }}
         />
       )}
