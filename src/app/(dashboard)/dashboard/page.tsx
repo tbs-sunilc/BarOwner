@@ -251,12 +251,12 @@ export default function DashboardPage() {
         <head>
           <title>Bar QR Codes - SipSave</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e1e26; }
+            body { font-family: Verdana, Geneva, sans-serif; color: #1e1e26; }
             .header { text-align: center; margin-bottom: 40px; padding: 20px; border-bottom: 2px solid #f3f4f6; }
             .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; padding: 20px; }
             .card { border: 2px dashed #e5e7eb; border-radius: 16px; padding: 30px; text-align: center; page-break-inside: avoid; }
             .table-name { font-size: 24px; font-weight: bold; margin: 16px 0 8px; color: #1e1b4b; }
-            .token { font-family: monospace; font-size: 10px; color: #6b7280; word-break: break-all; }
+            .token { font-family: Verdana, Geneva, sans-serif; font-size: 10px; color: #6b7280; word-break: break-all; }
             .instructions { font-size: 14px; color: #6b7280; margin-top: 10px; }
             @media print {
               @page { margin: 20mm; }
