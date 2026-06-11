@@ -245,18 +245,24 @@ export default function DashboardPage() {
     }
 
     const svgElements = document.querySelectorAll(".qr-code-svg");
+    const sharedStyles = Array.from(
+      document.head.querySelectorAll('style, link[rel="stylesheet"]'),
+    )
+      .map((node) => node.outerHTML)
+      .join("");
 
     let content = `
       <html>
         <head>
           <title>Bar QR Codes - SipSave</title>
+          ${sharedStyles}
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e1e26; }
+            body { font-family: var(--font-sans); color: var(--color-ink-2); }
             .header { text-align: center; margin-bottom: 40px; padding: 20px; border-bottom: 2px solid #f3f4f6; }
             .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; padding: 20px; }
             .card { border: 2px dashed #e5e7eb; border-radius: 16px; padding: 30px; text-align: center; page-break-inside: avoid; }
             .table-name { font-size: 24px; font-weight: bold; margin: 16px 0 8px; color: #1e1b4b; }
-            .token { font-family: monospace; font-size: 10px; color: #6b7280; word-break: break-all; }
+            .token { font-family: var(--font-mono); font-size: 10px; color: #6b7280; word-break: break-all; }
             .instructions { font-size: 14px; color: #6b7280; margin-top: 10px; }
             @media print {
               @page { margin: 20mm; }
@@ -285,11 +291,14 @@ export default function DashboardPage() {
     content += `
           </div>
           <script>
-            window.onload = () => { 
+            window.onload = async () => {
+              if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+              }
               setTimeout(() => {
                 window.print(); 
                 window.close(); 
-              }, 500);
+              }, 250);
             };
           </script>
         </body>

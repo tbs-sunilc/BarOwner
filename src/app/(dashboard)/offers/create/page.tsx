@@ -117,7 +117,7 @@ export default function CreateOfferPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-8 max-w-5xl">
       <header className="mb-6">
         <Link href="/offers" className="text-sm text-slate-500 hover:text-slate-700">← Back to offers</Link>
         <h1 className="text-2xl font-bold text-slate-900 mt-2">New offer</h1>
@@ -134,6 +134,7 @@ export default function CreateOfferPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-2">
         <FormSection title="Offer type">
           <FormField label="Offer type">
             <select
@@ -241,6 +242,7 @@ export default function CreateOfferPage() {
             </FormRow>
           )}
         </FormSection>
+        </div>
 
         {error && (
           <p className="text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-4 py-3 text-sm">
