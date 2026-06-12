@@ -1,127 +1,266 @@
 'use client';
 
-/**
- * SC-18 Subscription Management.
- *
- * Source of truth for the current-plan card + status banner is the
- * dashboard payload (it already carries a subscription block).  The
- * billing-history table runs off a future Phase 8 endpoint; we render a
- * "coming soon" placeholder until it lands so the layout matches the
- * prototype.
- */
-
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { getActiveBarId } from '@/lib/active-bar';
 import {
   ApiError,
+  cancelSubscription,
+  changeSubscriptionPlan,
   getDashboard,
-  type SubscriptionStatusDto,
+  getSubscriptionPlans,
+  getSubscriptionStatus,
+  type BarSubscriptionStatusDto,
+  type SubscriptionPlanDto,
 } from '@/lib/api-client';
 import { CancelSubscriptionModal } from '@/components/modals/CancelSubscriptionModal';
+import { ChangeSubscriptionPlanModal } from '@/components/modals/ChangeSubscriptionPlanModal';
 
 export default function SubscriptionPage() {
   const [barId, setBarId] = useState<number | null>(null);
-  const [sub, setSub] = useState<SubscriptionStatusDto | null>(null);
-  const [activeWallets, setActiveWallets] = useState<number>(0);
+  const [subscription, setSubscription] = useState<BarSubscriptionStatusDto | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlanDto[]>([]);
+  const [activeWallets, setActiveWallets] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancel, setShowCancel] = useState(false);
+  const [showChangePlan, setShowChangePlan] = useState(false);
+  const [changePlanBusy, setChangePlanBusy] = useState(false);
+  const [changePlanError, setChangePlanError] = useState<string | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  useEffect(() => setBarId(getActiveBarId()), []);
+  useEffect(() => {
+    const resolvedBarId = getActiveBarId();
+    setBarId(resolvedBarId);
+
+    if (resolvedBarId === null) {
+      setLoading(false);
+      setError('No active bar selected. Please log in again.');
+    }
+  }, []);
+
+  const loadSubscription = useCallback(async (activeBarId: number) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [dashboard, subscriptionResult, planList] = await Promise.all([
+        getDashboard(activeBarId),
+        getSubscriptionStatus(activeBarId).catch((err) => {
+          if (err instanceof ApiError && err.status === 404) return null;
+          throw err;
+        }),
+        getSubscriptionPlans(),
+      ]);
+
+      setSubscription(subscriptionResult);
+      setPlans(planList);
+      setActiveWallets(dashboard.kpis.activeWalletCount);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load subscription');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (barId == null) return;
-    (async () => {
-      try {
-        const dash = await getDashboard(barId);
-        setSub(dash.subscription);
-        setActiveWallets(dash.kpis.activeWalletCount);
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'Failed to load subscription');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [barId]);
+    void loadSubscription(barId);
+  }, [barId, loadSubscription]);
+
+  const currentPlan = subscription
+    ? plans.find((plan) => plan.id === subscription.subscriptionPlanId) ?? null
+    : null;
+  const billingCycle = subscription?.billingCycle === 'Annual' ? 'Annual' : 'Monthly';
+  const currentPlanLabel = currentPlan?.badge || currentPlan?.tier || subscription?.planName || 'Current plan';
+
+  async function handleChangePlan(plan: SubscriptionPlanDto) {
+    if (!barId || !subscription || changePlanBusy) return;
+
+    setChangePlanBusy(true);
+    setChangePlanError(null);
+
+    try {
+      const updated = await changeSubscriptionPlan(barId, {
+        planCode: plan.code ?? plan.name.toUpperCase(),
+        billingCycle: subscription.billingCycle === 'Annual' ? 'Annual' : 'Monthly',
+      });
+
+      setSubscription(updated);
+      setShowChangePlan(false);
+    } catch (err) {
+      setChangePlanError(err instanceof ApiError ? err.message : 'Failed to change plan');
+    } finally {
+      setChangePlanBusy(false);
+    }
+  }
+
+  async function handleCancelSubscription(reason?: string, detail?: string) {
+    if (!barId || !subscription || cancelBusy) return;
+
+    setCancelBusy(true);
+    setCancelError(null);
+
+    try {
+      const updated = await cancelSubscription(barId, {
+        reason: reason?.trim() || 'Other',
+        detail: detail?.trim() || undefined,
+      });
+
+      setSubscription(updated);
+      setShowCancel(false);
+      setShowChangePlan(false);
+    } catch (err) {
+      setCancelError(err instanceof ApiError ? err.message : 'Failed to cancel subscription');
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="max-w-4xl p-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Subscription</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Your SipSave platform plan, billing history and payment method.
+        <p className="mt-1 text-sm text-slate-500">
+          Review your active plan, switch to another plan, and keep an eye on payment health.
         </p>
       </header>
 
-      {sub?.isFailing && (
-        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 rounded-lg">
-          <p className="font-semibold text-amber-900">⚠️ Payment failed</p>
-          <p className="text-sm text-amber-800 mt-1">
-            {sub.lastFailureReason ? `Reason: ${sub.lastFailureReason}. ` : ''}
-            {typeof sub.daysUntilDelisted === 'number' &&
-              `Your bar will be de-listed in ${sub.daysUntilDelisted} day${sub.daysUntilDelisted === 1 ? '' : 's'} if not resolved.`}
+      {subscription?.isFailing && (
+        <div className="mb-5 rounded-lg border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 p-4">
+          <p className="font-semibold text-amber-900">Payment failed</p>
+          <p className="mt-1 text-sm text-amber-800">
+            {subscription.lastFailureReason ? `Reason: ${subscription.lastFailureReason}. ` : ''}
+            {typeof subscription.daysUntilDelisted === 'number' &&
+              `Your bar will be de-listed in ${subscription.daysUntilDelisted} day${subscription.daysUntilDelisted === 1 ? '' : 's'} if not resolved.`}
           </p>
-          <button className="mt-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-2 rounded-lg">
+          <button
+            type="button"
+            className="mt-3 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+          >
             Update payment method
           </button>
         </div>
       )}
 
-      {loading && <p className="text-slate-400">Loading subscription…</p>}
+      {loading && <p className="text-slate-400">Loading subscription...</p>}
+
       {error && (
-        <p className="text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-4 py-3">
+        <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
           {error}
         </p>
       )}
 
-      {!loading && (
+      {!loading && !error && (
         <>
-          <section className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
-            <div className="flex items-start justify-between flex-wrap gap-4">
+          <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-wider text-slate-500">Current plan</p>
-                <h2 className="text-2xl font-bold text-slate-900 mt-1">
-                  {sub ? 'Growth' : 'No active plan'}
+                <h2 className="mt-1 text-2xl font-bold text-slate-900">
+                  {subscription ? subscription.planName : 'No active plan'}
                 </h2>
-                <p className="text-sm text-slate-600 mt-2">
-                  {sub ? (
-                    <>Status: <StatusBadge status={sub.status} /></>
+                <p className="mt-2 text-sm text-slate-600">
+                  {subscription ? (
+                    <>
+                      Status: <StatusBadge status={subscription.status} />
+                    </>
                   ) : (
-                    'Sign up for a plan to unlock the bartender tablet, loyalty, and campaigns.'
+                    'Pick a plan to activate your bar subscription.'
                   )}
                 </p>
-                {sub?.gracePeriodEndsAtUtc && (
-                  <p className="text-xs text-amber-700 mt-1">
-                    Grace period ends {new Date(sub.gracePeriodEndsAtUtc).toLocaleString()}
+                {subscription && !subscription.autoRenew && subscription.status !== 'Cancelled' && (
+                  <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Cancellation scheduled. Access continues until{' '}
+                    {formatDateTime(subscription.currentPeriodEnd)}.
+                  </p>
+                )}
+                {subscription?.gracePeriodEndsAtUtc && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Grace period ends {formatDateTime(subscription.gracePeriodEndsAtUtc)}
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button
-                  className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold px-4 py-2 rounded-lg"
-                  disabled
-                  title="Available in Phase 8"
-                >
-                  Change plan
-                </button>
-                {sub && (
+
+              <div className="flex flex-wrap gap-2">
+                {subscription ? (
                   <button
-                    onClick={() => setShowCancel(true)}
-                    className="text-sm font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 px-4 py-2 rounded-lg"
+                    type="button"
+                    onClick={() => {
+                      setChangePlanError(null);
+                      setShowChangePlan(true);
+                    }}
+                    disabled={plans.length === 0}
+                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300"
+                  >
+                    Change plan
+                  </button>
+                ) : (
+                  <Link
+                    href="/register/subscription"
+                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                  >
+                    Choose plan
+                  </Link>
+                )}
+
+                {subscription && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelError(null);
+                      setShowCancel(true);
+                    }}
+                    className="rounded-lg border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
                   >
                     Cancel plan
                   </button>
                 )}
               </div>
             </div>
+
+            {subscription && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <DetailTile label="Plan label" value={currentPlanLabel} />
+                <DetailTile
+                  label="Billing cycle"
+                  value={subscription.billingCycle}
+                  subtext={subscription.priceInRupees > 0 ? formatRupees(subscription.priceInRupees) : 'Free'}
+                />
+                <DetailTile
+                  label="Next billing"
+                  value={subscription.nextBillingAtUtc ? formatDateTime(subscription.nextBillingAtUtc) : 'Not set'}
+                />
+                <DetailTile
+                  label="Trial ends"
+                  value={subscription.trialEndsAtUtc ? formatDateTime(subscription.trialEndsAtUtc) : 'Not available'}
+                />
+              </div>
+            )}
           </section>
 
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6">
-            <div className="px-4 py-3 border-b border-slate-100">
-              <h2 className="font-semibold text-slate-800 text-sm">Billing history</h2>
+          {!subscription && (
+            <section className="mb-6 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+              <h2 className="text-lg font-semibold text-slate-900">No active subscription</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                You can start a plan from the registration flow and return here to manage it later.
+              </p>
+              <Link
+                href="/register/subscription"
+                className="mt-4 inline-flex rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+              >
+                Choose a plan
+              </Link>
+            </section>
+          )}
+
+          <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-800">Billing history</h2>
             </div>
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left">Date</th>
                   <th className="px-3 py-2 text-left">Invoice</th>
@@ -130,20 +269,20 @@ export default function SubscriptionPage() {
                 </tr>
               </thead>
               <tbody>
-                {sub?.lastFailureReason && (
+                {subscription?.lastFailureReason && (
                   <tr className="bg-rose-50 text-rose-900">
                     <td className="px-3 py-2 tabular-nums">Most recent</td>
                     <td className="px-3 py-2">INV-PENDING</td>
                     <td className="px-3 py-2">
-                      <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-rose-200 text-rose-900">
+                      <span className="rounded bg-rose-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-rose-900">
                         Failed
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">—</td>
+                    <td className="px-3 py-2 text-right tabular-nums">-</td>
                   </tr>
                 )}
                 <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-slate-500 text-sm">
+                  <td colSpan={4} className="px-3 py-8 text-center text-sm text-slate-500">
                     Detailed billing history lands with Phase 8 (subscription management).
                   </td>
                 </tr>
@@ -153,14 +292,36 @@ export default function SubscriptionPage() {
         </>
       )}
 
-      {showCancel && (
+      {showChangePlan && subscription && (
+        <ChangeSubscriptionPlanModal
+          plans={plans}
+          billingCycle={billingCycle}
+          currentPlanId={subscription.subscriptionPlanId}
+          busy={changePlanBusy}
+          error={changePlanError}
+          onCancel={() => {
+            if (changePlanBusy) return;
+            setShowChangePlan(false);
+            setChangePlanError(null);
+          }}
+          onSelectPlan={(plan) => {
+            void handleChangePlan(plan);
+          }}
+        />
+      )}
+
+      {showCancel && subscription && (
         <CancelSubscriptionModal
           activeWalletCount={activeWallets}
-          onCancel={() => setShowCancel(false)}
-          onConfirm={() => {
+          busy={cancelBusy}
+          error={cancelError}
+          onCancel={() => {
+            if (cancelBusy) return;
             setShowCancel(false);
-            // Phase 8: POST /api/v1/bars/:barId/subscription/cancel
-            alert('Cancel-subscription endpoint lands in Phase 8.');
+            setCancelError(null);
+          }}
+          onConfirm={(reason, detail) => {
+            void handleCancelSubscription(reason, detail);
           }}
         />
       )}
@@ -169,13 +330,44 @@ export default function SubscriptionPage() {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const tone = status === 'Active' ? 'bg-emerald-100 text-emerald-800'
-    : status === 'Trial' ? 'bg-violet-100 text-violet-800'
-    : status === 'GracePeriod' || status === 'PastDue' ? 'bg-amber-100 text-amber-800'
-    : 'bg-slate-200 text-slate-700';
+  const tone =
+    status === 'Active'
+      ? 'bg-emerald-100 text-emerald-800'
+      : status === 'Trial'
+        ? 'bg-violet-100 text-violet-800'
+        : status === 'GracePeriod' || status === 'PastDue'
+          ? 'bg-amber-100 text-amber-800'
+          : 'bg-slate-200 text-slate-700';
+
   return (
-    <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded ${tone}`}>
+    <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${tone}`}>
       {status}
     </span>
   );
+}
+
+function DetailTile({
+  label,
+  value,
+  subtext,
+}: {
+  label: string;
+  value: string;
+  subtext?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+      {subtext && <p className="mt-1 text-xs text-slate-500">{subtext}</p>}
+    </div>
+  );
+}
+
+function formatRupees(amount: number) {
+  return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('en-IN');
 }

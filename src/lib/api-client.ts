@@ -432,6 +432,69 @@ export const subscribeToPlan = (
     body: JSON.stringify(payload),
   });
 
+export type BarSubscriptionStatusDto = {
+  id: number;
+  subscriptionPlanId: number;
+  planName: string;
+  status: string;
+  billingCycle: string;
+  priceInRupees: number;
+  autoRenew: boolean;
+  startedAt: string;
+  currentPeriodEnd: string;
+  nextBillingAtUtc: string | null;
+  trialEndsAtUtc: string | null;
+  gracePeriodEndsAtUtc: string | null;
+  isFailing: boolean;
+  daysUntilDelisted: number | null;
+  failedPaymentCount: number;
+  lastFailureReason: string | null;
+};
+
+export type SubscriptionStatusDto = Pick<
+  BarSubscriptionStatusDto,
+  | "status"
+  | "gracePeriodEndsAtUtc"
+  | "daysUntilDelisted"
+  | "isFailing"
+  | "lastFailureReason"
+>;
+
+export const getSubscriptionStatus = (barId: number) => {
+  assertValidBarId(barId);
+  return request<BarSubscriptionStatusDto>(`/api/v1/bars/${barId}/subscription`);
+};
+
+export const changeSubscriptionPlan = (
+  barId: number,
+  payload: SubscribeToPlanPayload,
+) => {
+  assertValidBarId(barId);
+  return request<BarSubscriptionStatusDto>(
+    `/api/v1/bars/${barId}/subscription/change-plan`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+};
+
+export type CancelSubscriptionPayload = {
+  reason: string;
+  detail?: string | null;
+};
+
+export const cancelSubscription = (
+  barId: number,
+  payload: CancelSubscriptionPayload,
+) => {
+  assertValidBarId(barId);
+  return request<BarSubscriptionStatusDto>(`/api/v1/bars/${barId}/subscription`, {
+    method: "DELETE",
+    body: JSON.stringify(payload),
+  });
+};
+
 export const simulateSubscriptionPaymentFailure = (barId: number) => {
   assertValidBarId(barId);
   return request<SubscriptionStatusDto>(
@@ -1329,14 +1392,6 @@ export type RecentTransactionDto = {
   paymentMethod: string | null;
   status: string;
   capturedAtUtc: string;
-};
-
-export type SubscriptionStatusDto = {
-  status: string;
-  gracePeriodEndsAtUtc: string | null;
-  daysUntilDelisted: number | null;
-  isFailing: boolean;
-  lastFailureReason: string | null;
 };
 
 export type DashboardDto = {

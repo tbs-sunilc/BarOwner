@@ -1,22 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 /**
  * SC-18 cancel-plan confirm modal.
  *
  * Shows the active-wallet count so the owner sees the customer impact up
- * front.  After cancellation:
+ * front. After cancellation:
  *   - Existing wallets can still be poured against until exhausted / expired.
  *   - No new wallet purchases, offers, or loyalty accrual.
  *   - Bar is de-listed from discover once the billing period ends.
- * The reason dropdown feeds the <c>BarSubscription.CancellationReason</c>
- * column — useful for churn analytics in Phase 10.
+ * The reason dropdown feeds the BarSubscription.CancellationReason column.
  */
 
 type Props = {
   activeWalletCount: number;
   busy?: boolean;
+  error?: string | null;
   onCancel: () => void;
   onConfirm: (reason?: string, detail?: string) => void;
 };
@@ -33,11 +33,21 @@ const REASONS = [
 export function CancelSubscriptionModal({
   activeWalletCount,
   busy = false,
+  error,
   onCancel,
   onConfirm,
 }: Props) {
   const [reason, setReason] = useState<string>(REASONS[0]);
   const [detail, setDetail] = useState('');
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) onCancel();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [busy, onCancel]);
 
   return (
     <Backdrop onDismiss={busy ? undefined : onCancel}>
@@ -49,10 +59,19 @@ export function CancelSubscriptionModal({
             {activeWalletCount} active customer wallet{activeWalletCount === 1 ? '' : 's'} at your bar.
           </p>
           <p className="mt-1">
-            Customers can still pour against their remaining balance, but you won&apos;t be able to
+            Customers can still pour against their remaining balance, but you won't be able to
             accept new wallet purchases or top-ups after cancellation.
           </p>
         </div>
+
+        {error && (
+          <div
+            className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
 
         <label className="block text-xs font-medium text-slate-600 mt-4">Reason for cancelling</label>
         <select
@@ -60,7 +79,11 @@ export function CancelSubscriptionModal({
           onChange={(e) => setReason(e.target.value)}
           className="mt-1 w-full rounded-lg border-slate-300 text-sm"
         >
-          {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          {REASONS.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
         </select>
 
         <label className="block text-xs font-medium text-slate-600 mt-3">
@@ -71,16 +94,17 @@ export function CancelSubscriptionModal({
           maxLength={500}
           value={detail}
           onChange={(e) => setDetail(e.target.value)}
-          placeholder="Tell us what we could have done better…"
+          placeholder="Tell us what we could have done better..."
           className="mt-1 w-full rounded-lg border-slate-300 text-sm"
         />
 
         <p className="text-xs text-slate-500 mt-3">
-          You&apos;ll keep access until the end of the current billing period.
+          You'll keep access until the end of the current billing period.
         </p>
 
         <div className="mt-5 flex justify-end gap-2">
           <button
+            type="button"
             onClick={onCancel}
             disabled={busy}
             className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
@@ -88,11 +112,12 @@ export function CancelSubscriptionModal({
             Keep plan
           </button>
           <button
+            type="button"
             onClick={() => onConfirm(reason, detail.trim())}
             disabled={busy}
             className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 rounded-lg"
           >
-            {busy ? 'Cancelling…' : 'Cancel plan'}
+            {busy ? 'Cancelling...' : 'Cancel plan'}
           </button>
         </div>
       </div>
@@ -100,7 +125,7 @@ export function CancelSubscriptionModal({
   );
 }
 
-function Backdrop({ children, onDismiss }: { children: React.ReactNode; onDismiss?: () => void }) {
+function Backdrop({ children, onDismiss }: { children: ReactNode; onDismiss?: () => void }) {
   return (
     <div
       className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50"
