@@ -1305,59 +1305,83 @@ export const getLoyaltyStats = (barId: number) =>
 
 // ---- Campaigns ----
 
-export type DormantUserDto = {
-  userId: number;
-  fullName: string | null;
-  mobileNumber: string;
-  walletId: number;
-  bottleCatalogueId: number;
-  bottleBrandName: string;
-  bottleProductName: string;
-  purchasedVolumeMl: number;
-  remainingVolumeMl: number;
-  lastConsumedAtUtc: string | null;
-  daysSinceLastActivity: number;
-  atMonthlyCap: boolean;
-};
-
-export type CampaignResultDto = {
-  campaignId: string;
-  enqueuedCount: number;
-  skippedCount: number;
-  skipped: { userId: number; reason: string }[];
-};
-
-export type CampaignHistoryDto = {
-  campaignId: string;
+export type CampaignListItemDto = {
+  id: string;
+  barId: number;
+  name: string;
+  segment: string;
+  category: string;
+  templateCode: string | null;
   subject: string | null;
-  recipientCount: number;
-  sentCount: number;
-  deliveredCount: number;
-  failedCount: number;
-  createdAtUtc: string;
+  body: string;
+  channels: string;
+  status: string;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  totalRecipients: number;
+  createdAt: string;
+  createdBy: number | null;
 };
 
-export const listDormantUsers = (barId: number, daysInactive = 30) =>
-  request<DormantUserDto[]>(
-    `/api/v1/bars/${barId}/campaigns/dormant-users?daysInactive=${daysInactive}`,
-  );
+export type CampaignStatsDto = {
+  totalRecipients: number;
+  deliveredCount: number;
+  readCount: number;
+  convertedCount: number;
+};
+
+export type CampaignDetailDto = {
+  campaign: CampaignListItemDto;
+  stats: CampaignStatsDto;
+};
+
+export type SegmentCountsDto = {
+  all: number;
+  powerRegular: number;
+  dormant: number;
+  newCustomer: number;
+  birthdayMonth: number;
+};
+
+export type TemplateDto = {
+  category: string;
+  code: string;
+  subject: string;
+  body: string;
+};
+
+export const listCampaigns = (barId: number, take = 10) =>
+  request<CampaignListItemDto[]>(`/api/campaigns?barId=${barId}&take=${take}`);
+
+export const getCampaign = (barId: number, id: string) =>
+  request<CampaignDetailDto>(`/api/campaigns/${id}?barId=${barId}`);
 
 export const createCampaign = (
   barId: number,
   payload: {
+    name: string;
+    segment: string;
+    category: string;
+    templateCode?: string | null;
     subject: string;
-    bodyTemplate: string;
-    userIds: number[];
-    channels?: ("Push" | "Whatsapp")[];
+    body: string;
+    channels: string;
+    scheduledAt?: string | null;
   },
 ) =>
-  request<CampaignResultDto>(`/api/v1/bars/${barId}/campaigns`, {
+  request<CampaignListItemDto>(`/api/campaigns?barId=${barId}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 
-export const listCampaigns = (barId: number, take = 25) =>
-  request<CampaignHistoryDto[]>(`/api/v1/bars/${barId}/campaigns?take=${take}`);
+export const sendCampaign = (barId: number, id: string) =>
+  request(`/api/campaigns/${id}/send?barId=${barId}`, { method: "POST" });
+
+export const getCampaignSegmentCounts = (barId: number) =>
+  request<SegmentCountsDto>(`/api/campaigns/segments/count?barId=${barId}`);
+
+export const listCampaignTemplates = () =>
+  request<TemplateDto[]>(`/api/campaigns/templates`);
 
 // ---------------------------------------------------------------------------
 //  Phase 7 — Dashboard, Revenue, Staff

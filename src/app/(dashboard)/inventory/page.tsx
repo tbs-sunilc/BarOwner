@@ -26,7 +26,6 @@ import {
 } from '@/lib/api-client';
 import { getActiveBarId, setActiveBarDetails, setActiveBarId } from '@/lib/active-bar';
 import { EditBottleModal } from '@/components/inventory/EditBottleModal';
-import { ManageCategoriesModal } from '@/components/inventory/ManageCategoriesModal';
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -39,7 +38,6 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryId, setCategoryId] = useState<number | 'All'>('All');
   const [barCategories, setBarCategories] = useState<BarInventoryCategory[]>([]);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [pendingToggleId, setPendingToggleId] = useState<number | null>(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
 
@@ -196,14 +194,6 @@ export default function InventoryPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-md hover:bg-white"
-            onClick={() => setCategoriesOpen(true)}
-            disabled={!barId}
-          >
-            Manage Categories
-          </button>
-          <button
-            type="button"
             className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-md hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
             onClick={onDownloadReconciliationReport}
             disabled={!barId || loading || downloadingReport}
@@ -348,12 +338,6 @@ export default function InventoryPage() {
         onDeleted={onModalDeleted}
       />
 
-      <ManageCategoriesModal
-        barId={barId}
-        isOpen={categoriesOpen}
-        onClose={() => setCategoriesOpen(false)}
-        onChanged={refresh}
-      />
     </div>
   );
 }
