@@ -6,10 +6,12 @@ import {
   ApiError,
   createCampaign,
   getCampaignSegmentCounts,
+  getCampaignQuotaSummary,
   listCampaignTemplates,
   listCampaigns,
   sendCampaign,
   type CampaignListItemDto,
+  type CampaignQuotaSummaryDto,
   type SegmentCountsDto,
   type TemplateDto,
 } from '@/lib/api-client';
@@ -161,6 +163,7 @@ export default function CampaignsPage() {
   const [counts, setCounts] = useState<SegmentCountsDto | null>(null);
   const [backendTemplates, setBackendTemplates] = useState<TemplateDto[]>([]);
   const [campaigns, setCampaigns] = useState<CampaignListItemDto[]>([]);
+  const [quotaSummary, setQuotaSummary] = useState<CampaignQuotaSummaryDto[]>([]);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [campaignName, setCampaignName] = useState('Weekend Push');
@@ -190,6 +193,12 @@ export default function CampaignsPage() {
       setCounts(segmentCounts);
       setBackendTemplates(templates);
       setCampaigns(recent);
+      if (recent.length > 0) {
+        const summary = await getCampaignQuotaSummary(id, String(recent[0].id));
+        setQuotaSummary(summary);
+      } else {
+        setQuotaSummary([]);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load campaigns');
     }
@@ -373,6 +382,36 @@ export default function CampaignsPage() {
                           <td>{c.totalRecipients}</td>
                           <td>{c.status}</td>
                           <td>{new Date(c.createdAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-5">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Latest quota summary</div>
+              {quotaSummary.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">No quota data yet</div>
+              ) : (
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-slate-500">
+                      <tr>
+                        <th className="py-2">User</th>
+                        <th>Sent</th>
+                        <th>Remaining</th>
+                        <th>Limit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotaSummary.map((row) => (
+                        <tr key={row.userId} className="border-t border-slate-100">
+                          <td className="py-2 font-medium text-slate-900">{row.fullName ?? `User ${row.userId}`}</td>
+                          <td>{row.sentCount}</td>
+                          <td>{row.remainingCount}</td>
+                          <td>{row.limitCount}</td>
                         </tr>
                       ))}
                     </tbody>

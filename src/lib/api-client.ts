@@ -1267,6 +1267,14 @@ export type CampaignStatsDto = {
   convertedCount: number;
 };
 
+export type CampaignQuotaSummaryDto = {
+  userId: number;
+  fullName: string | null;
+  sentCount: number;
+  remainingCount: number;
+  limitCount: number;
+};
+
 export type CampaignDetailDto = {
   campaign: CampaignListItemDto;
   stats: CampaignStatsDto;
@@ -1313,6 +1321,11 @@ export const createCampaign = (
 
 export const sendCampaign = (barId: number, id: string) =>
   request(`/api/campaigns/${id}/send?barId=${barId}`, { method: "POST" });
+
+export const getCampaignQuotaSummary = (barId: number, id: string) =>
+  request<CampaignQuotaSummaryDto[]>(
+    `/api/campaigns/${id}/quota-summary?barId=${barId}`,
+  );
 
 export const getCampaignSegmentCounts = (barId: number) =>
   request<SegmentCountsDto>(`/api/campaigns/segments/count?barId=${barId}`);
