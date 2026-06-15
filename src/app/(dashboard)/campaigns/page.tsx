@@ -15,7 +15,7 @@ import {
 } from '@/lib/api-client';
 
 const SEGMENTS = [
-  { key: 'all', label: 'All users', desc: 'Everyone active', icon: 'users' },
+  { key: 'all', label: 'All visitors', desc: 'Everyone from this bar', icon: 'users' },
   { key: 'power', label: 'Power regular', desc: '4+ visits/month', icon: 'flame' },
   { key: 'dormant', label: 'Dormant user', desc: 'No visit 3+ weeks', icon: 'moon' },
   { key: 'new', label: 'New customer', desc: '0-1 visit', icon: 'user-plus' },
@@ -270,7 +270,7 @@ export default function CampaignsPage() {
     <div className="space-y-6 p-6 lg:p-8">
       <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 p-6 text-white shadow-xl">
         <p className="text-xs uppercase tracking-[0.35em] text-amber-300">SipSave Campaigns</p>
-        <h1 className="mt-2 text-3xl font-semibold">Smart notification builder</h1>
+        <h1 className="mt-2 text-3xl font-semibold text-white">Smart notification builder</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-300">
           Build segmented campaigns, preview personalized copy, and send through the connected campaign API. The UI mirrors your reference flow and the buttons are wired to real data.
         </p>
@@ -299,7 +299,7 @@ export default function CampaignsPage() {
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <div className="space-y-6">
             <section className="rounded-3xl border border-slate-200 bg-white p-5">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Target segment</div>
+                <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Target audience for this bar</div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {SEGMENTS.map((item) => (
                   <button
