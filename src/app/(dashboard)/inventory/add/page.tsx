@@ -27,6 +27,7 @@ import {
   type MasterCategory,
 } from '@/lib/api-client';
 import { getActiveBarId, setActiveBarDetails } from '@/lib/active-bar';
+import { getDocumentUrl } from '@/lib/document-url';
 
 type FormState = {
   sellingPrice: string;
@@ -110,8 +111,10 @@ export default function AddBottlePage() {
     return map;
   }, [masterCategories]);
 
-  function resolveMasterCategoryId(categoryName: string): number | null {
-    return masterCategoryByName.get(categoryName.trim().toLowerCase())?.id ?? null;
+  function resolveMasterCategoryId(categoryName?: string | null): number | null {
+    const normalized = categoryName?.trim().toLowerCase();
+    if (!normalized) return null;
+    return masterCategoryByName.get(normalized)?.id ?? null;
   }
 
   // Debounced catalogue search (optional master-category filter).
@@ -304,7 +307,7 @@ export default function AddBottlePage() {
                 key={r.id}
                 onClick={() => pickBottle(r)}
                 className={[
-                  'flex items-center justify-between gap-3 px-3 py-2.5 text-sm border-b border-slate-100 last:border-b-0',
+                  'flex items-center gap-3 px-3 py-2.5 text-sm border-b border-slate-100 last:border-b-0',
                   r.alreadyInInventory
                     ? 'cursor-not-allowed opacity-60'
                     : picked?.id === r.id
@@ -312,6 +315,15 @@ export default function AddBottlePage() {
                     : 'cursor-pointer hover:bg-violet-50',
                 ].join(' ')}
               >
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                  {r.imageUrl ? (
+                    <img src={getDocumentUrl(r.imageUrl)} alt={`${r.brandName} ${r.productName}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] font-black uppercase text-slate-400">
+                      No Img
+                    </div>
+                  )}
+                </div>
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-800 truncate">
                     {r.brandName} — {r.productName}
@@ -404,10 +416,23 @@ export default function AddBottlePage() {
               </div>
             ) : (
               <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700 mb-4">
-                ✅ <strong>{picked.brandName} — {picked.productName}</strong> selected from catalogue
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-white">
+                    {picked.imageUrl ? (
+                      <img src={getDocumentUrl(picked.imageUrl)} alt={`${picked.brandName} ${picked.productName}`} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] font-black uppercase text-green-300">
+                        No Img
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    ✅ <strong>{picked.brandName} — {picked.productName}</strong> selected from catalogue
                 {picked.category ? (
                   <span className="block mt-1 text-green-800/80">Type: {picked.category}</span>
                 ) : null}
+                  </div>
+                </div>
               </div>
             )}
 

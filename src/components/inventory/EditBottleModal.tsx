@@ -27,6 +27,7 @@ import {
   type InventoryItem,
   type UpdateInventoryPayload,
 } from '@/lib/api-client';
+import { getDocumentUrl } from '@/lib/document-url';
 
 type Props = {
   item: InventoryItem | null;
@@ -176,9 +177,26 @@ export function EditBottleModal({ item, categories, isOpen, onClose, onUpdated, 
         {/* ── Form ─────────────────────────────────────────────────────── */}
         <div className="px-5 py-4">
           <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800 mb-4">
-            Editing <strong>{draft.brandName} {draft.productName}</strong>. Changes apply
+            <div className="flex items-center gap-3">
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-white">
+                {draft.imageUrl ? (
+                  <img
+                    src={getDocumentUrl(draft.imageUrl)}
+                    alt={`${draft.brandName} ${draft.productName}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] font-black uppercase text-violet-300">
+                    No Img
+                  </div>
+                )}
+              </div>
+              <div>
+                Editing <strong>{draft.brandName} {draft.productName}</strong>. Changes apply
             immediately to <em>new</em> purchases. Existing wallet holders are not affected by
             price or availability changes (BR-029).
+              </div>
+            </div>
           </div>
 
           {errorMessage && (

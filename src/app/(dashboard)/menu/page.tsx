@@ -11,10 +11,10 @@ import {
   setMenuItemAvailability,
   updateMenuItem,
   type MenuItemDto,
-  type UpsertMenuItemPayload,
+  type MenuItemUploadPayload,
 } from '@/lib/api-client';
 
-const EMPTY_FORM: UpsertMenuItemPayload = {
+const EMPTY_FORM: MenuItemUploadPayload = {
   name: '',
   description: '',
   category: 'Starter',
@@ -33,7 +33,9 @@ const CATEGORIES = ['Starter', 'MainCourse', 'Snack', 'Beverage', 'Dessert', 'Ot
 export default function MenuPage() {
   const [barId, setBarId] = useState<number | null>(null);
   const [items, setItems] = useState<MenuItemDto[]>([]);
-  const [form, setForm] = useState<UpsertMenuItemPayload>(EMPTY_FORM);
+  const [form, setForm] = useState<MenuItemUploadPayload>(EMPTY_FORM);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState<MenuItemDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,6 +51,17 @@ export default function MenuPage() {
     void loadMenu(barId);
     loadTaxSettings(barId);
   }, [barId]);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreviewUrl(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(imageFile);
+    setImagePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
 
   function loadTaxSettings(id: number) {
     try {
@@ -98,6 +111,7 @@ export default function MenuPage() {
 
   function edit(item: MenuItemDto) {
     setEditing(item);
+    setImageFile(null);
     setForm({
       name: item.name,
       description: item.description ?? '',
@@ -115,6 +129,8 @@ export default function MenuPage() {
 
   function resetForm() {
     setEditing(null);
+    setImageFile(null);
+    setImagePreviewUrl(null);
     setForm(EMPTY_FORM);
   }
 
@@ -132,10 +148,15 @@ export default function MenuPage() {
     try {
       setSaving(true);
       setError(null);
+      const payload = {
+        ...form,
+        imageUrl: form.imageUrl?.trim() || null,
+        imageFile,
+      };
       if (editing) {
-        await updateMenuItem(editing.id, form);
+        await updateMenuItem(editing.id, payload);
       } else {
-        await createMenuItem(barId, form);
+        await createMenuItem(barId, payload);
       }
       resetForm();
       await loadMenu(barId);
@@ -260,6 +281,28 @@ export default function MenuPage() {
             </Field>
             <Field label="Image URL">
               <input className="input" type="url" placeholder="https://example.com/image.jpg" value={form.imageUrl ?? ''} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
+            </Field>
+            <Field label="Or upload image">
+              <input
+                className="input"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+              />
+              {(imagePreviewUrl || form.imageUrl) && (
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="h-16 w-16 overflow-hidden rounded-lg bg-white">
+                    <img
+                      src={imagePreviewUrl ?? form.imageUrl ?? undefined}
+                      alt="Menu item preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {imagePreviewUrl ? 'New image selected. Save to upload.' : 'Current image URL will be reused.'}
+                  </p>
+                </div>
+              )}
             </Field>
             <label className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <span className="font-medium text-slate-700">Available to staff</span>
