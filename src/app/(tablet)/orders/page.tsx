@@ -166,9 +166,27 @@ export default function FoodOrdersPage() {
 
                   <div className="mb-6 space-y-3">
                     {order.items.map((item, idx) => (
-                      <div key={`${order.id}-${idx}`} className="flex justify-between text-xs font-bold text-slate-600">
-                        <span>{item.name} <span className="text-slate-400">x{item.qty}</span></span>
-                        <span>₹{(item.price * item.qty).toFixed(2)}</span>
+                      <div key={`${order.id}-${idx}`} className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-slate-200">
+                          {menuItems.find((menuItem) => menuItem.id === item.menuItemId)?.imageUrl ? (
+                            <img
+                              src={menuItems.find((menuItem) => menuItem.id === item.menuItemId)?.imageUrl ?? undefined}
+                              alt={item.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] font-black uppercase text-slate-400">
+                              No Img
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="block truncate">{item.name} <span className="text-slate-400">x{item.qty}</span></span>
+                          <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            {menuItems.find((menuItem) => menuItem.id === item.menuItemId)?.category ?? 'Food item'}
+                          </span>
+                        </div>
+                        <span className="shrink-0">₹{(item.price * item.qty).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -206,10 +224,22 @@ export default function FoodOrdersPage() {
                   <button
                     key={item.id}
                     onClick={() => quickSelect(item)}
-                    className="flex w-full items-center justify-between rounded border border-transparent px-3 py-2 text-left transition-colors hover:border-[#a5b4fc] hover:bg-[#eef2ff]"
+                    className="flex w-full items-center gap-3 rounded border border-transparent px-3 py-2 text-left transition-colors hover:border-[#a5b4fc] hover:bg-[#eef2ff]"
                   >
-                    <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                    <span className="text-sm font-bold text-slate-900">₹{item.price.toFixed(2)}</span>
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] font-black uppercase text-slate-400">
+                          No Img
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-700">{item.name}</p>
+                      <p className="text-[11px] text-slate-400">{item.category}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold text-slate-900">₹{item.price.toFixed(2)}</span>
                   </button>
                 ))}
                 {menuItems.length === 0 && (

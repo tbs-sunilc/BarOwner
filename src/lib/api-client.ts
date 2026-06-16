@@ -1087,6 +1087,27 @@ export type UpsertMenuItemPayload = {
   displayOrder: number;
 };
 
+export type MenuItemUploadPayload = UpsertMenuItemPayload & {
+  imageFile?: File | null;
+};
+
+function buildMenuItemFormData(payload: MenuItemUploadPayload): FormData {
+  const formData = new FormData();
+  formData.append("name", payload.name);
+  formData.append("description", payload.description ?? "");
+  formData.append("category", payload.category);
+  formData.append("priceInPaise", String(payload.priceInPaise));
+  formData.append("imageUrl", payload.imageUrl ?? "");
+  formData.append("isVeg", String(payload.isVeg));
+  formData.append("spiceLevel", payload.spiceLevel ?? "");
+  formData.append("allergens", payload.allergens ?? "");
+  formData.append("isAvailable", String(payload.isAvailable));
+  formData.append("isHighlighted", String(payload.isHighlighted));
+  formData.append("displayOrder", String(payload.displayOrder));
+  if (payload.imageFile) formData.append("imageFile", payload.imageFile);
+  return formData;
+}
+
 export type CreateFoodOrderPayload = {
   barId: number;
   tableId?: number | null;
@@ -1108,16 +1129,16 @@ export const listMenuItems = (barId: number, includeUnavailable = true) =>
     `/api/v1/bars/${barId}/menu?includeUnavailable=${includeUnavailable}`,
   );
 
-export const createMenuItem = (barId: number, payload: UpsertMenuItemPayload) =>
+export const createMenuItem = (barId: number, payload: MenuItemUploadPayload) =>
   request<MenuItemDto>(`/api/v1/bars/${barId}/menu`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: buildMenuItemFormData(payload),
   });
 
-export const updateMenuItem = (id: number, payload: UpsertMenuItemPayload) =>
+export const updateMenuItem = (id: number, payload: MenuItemUploadPayload) =>
   request<MenuItemDto>(`/api/v1/menu-items/${id}`, {
     method: "PUT",
-    body: JSON.stringify(payload),
+    body: buildMenuItemFormData(payload),
   });
 
 export const setMenuItemAvailability = (id: number, isAvailable: boolean) =>

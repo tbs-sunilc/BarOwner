@@ -24,6 +24,7 @@ import {
   type BarInventoryCategory,
   type InventoryItem,
 } from '@/lib/api-client';
+import { getDocumentUrl } from '@/lib/document-url';
 import { getActiveBarId, setActiveBarDetails, setActiveBarId } from '@/lib/active-bar';
 import { EditBottleModal } from '@/components/inventory/EditBottleModal';
 
@@ -424,11 +425,24 @@ function InventoryRow({
       className={`${rowBg} cursor-pointer border-b border-orange-900/10 transition`}
       onClick={onEdit}
     >
-      <td className="px-6 py-4">
-        <div className="font-semibold text-slate-800">{item.brandName}</div>
-        <div className="text-[11px] text-slate-400">
-          {item.productName}
-          {item.subCategory ? ` · ${item.subCategory}` : ''}
+      <td className="px-3 py-2.5">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+            {item.imageUrl ? (
+              <img src={getDocumentUrl(item.imageUrl)} alt={`${item.brandName} ${item.productName}`} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[10px] font-black uppercase text-slate-400">
+                No Img
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-slate-800">{item.brandName}</div>
+            <div className="text-[11px] text-slate-400 truncate">
+              {item.productName}
+              {item.subCategory ? ` · ${item.subCategory}` : ''}
+            </div>
+          </div>
         </div>
       </td>
       <td className="px-6 py-4">

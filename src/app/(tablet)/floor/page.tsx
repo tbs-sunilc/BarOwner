@@ -374,7 +374,6 @@ export default function FloorPage() {
               className={`panel ftile ${statusClass}`}
             >
                   <div className="w-full flex flex-col items-center justify-center">
-                    <div className="text-[11px] font-semibold text-slate-400">Table</div>
                     <div className={`badge-tablet ${badgeClass} mt-1`}>{badgeText}</div>
                     <div className="font-bold text-2xl text-ink-2 mt-3">{displayNumber}</div>
                     <div className="mt-1 text-xs text-slate-500 truncate w-full text-center">{subText}</div>
