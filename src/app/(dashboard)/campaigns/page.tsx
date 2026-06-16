@@ -232,7 +232,7 @@ export default function CampaignsPage() {
           ? counts.newCustomer
           : segment === 'bday'
             ? counts.birthdayMonth
-            : counts.allUsers
+            : counts.all
     : 0;
 
   function selectTemplate(id: number) {
@@ -257,7 +257,7 @@ export default function CampaignsPage() {
       const created = await createCampaign(barId, {
         name: campaignName,
         segment: toApiSegment(segment),
-        category: category === 'all' ? 'Personalized' : toApiCategory(category),
+        category: toApiCategory(category),
         templateCode: mergedTemplates.find((tpl) => tpl.id === selectedTemplateId)?.backend?.code ?? null,
         subject: subject || 'Campaign message',
         body,
@@ -320,7 +320,7 @@ export default function CampaignsPage() {
                     <div className="mt-2 text-sm font-semibold text-slate-900">{item.label}</div>
                     <div className="mt-1 text-xs text-slate-500">{item.desc}</div>
                     <div className="mt-3 text-2xl font-bold tabular-nums text-slate-900">
-                      {counts ? (item.key === 'power' ? counts.powerRegular : item.key === 'dormant' ? counts.dormant : item.key === 'new' ? counts.newCustomer : item.key === 'bday' ? counts.birthdayMonth : counts.allUsers) : '...'}
+                      {counts ? (item.key === 'power' ? counts.powerRegular : item.key === 'dormant' ? counts.dormant : item.key === 'new' ? counts.newCustomer : item.key === 'bday' ? counts.birthdayMonth : counts.all) : '...'}
                     </div>
                   </button>
                 ))}
