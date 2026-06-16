@@ -226,16 +226,7 @@ export default function FloorPage() {
     }
   };
 
-  const handleServe = (tableId: number, e?: any) => {
-    e?.stopPropagation();
-    // Quick action: jump to queue with table context (placeholder)
-    router.push(`/queue?tableId=${tableId}`);
-  };
-
-  const handleLookup = (tableId: number, e?: any) => {
-    e?.stopPropagation();
-    router.push(`/customer/lookup?tableId=${tableId}`);
-  };
+  
 
   // ─── connection badge ──────────────────────────────────────────────────────
   const connectionLabel = (() => {

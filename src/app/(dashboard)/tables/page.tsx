@@ -287,11 +287,9 @@ function TableRow({
   downloadingQr: boolean;
   onDownloadQr: () => void;
 }) {
-  const rowBg = table.isActive
-    ? 'bg-white hover:bg-slate-50'
-    : 'bg-slate-50/60 text-slate-400 hover:bg-slate-100';
+  const rowBg = table.isActive ? 'bg-white' : 'bg-slate-50/60 text-slate-400';
   return (
-    <tr className={`${rowBg} border-b border-orange-900/10 transition`}>
+    <tr className={`${rowBg} border-b border-orange-900/10`}>
       <td className="px-6 py-4 font-semibold text-slate-800">{table.tableNumber}</td>
       <td className="px-6 py-4 text-slate-500">{table.floorSection ?? <span className="text-slate-300">—</span>}</td>
       <td className="px-6 py-4 text-right">{table.capacity ?? <span className="text-slate-300">—</span>}</td>

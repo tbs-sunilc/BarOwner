@@ -10,7 +10,7 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getActiveBarId } from '@/lib/active-bar';
 import {
   ApiError,
@@ -26,6 +26,8 @@ export default function StaffPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingDeactivate, setPendingDeactivate] = useState<StaffRowDto | null>(null);
   const [busy, setBusy] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'All' | string>('All');
 
   useEffect(() => setBarId(getActiveBarId()), []);
 
@@ -58,101 +60,110 @@ export default function StaffPage() {
     }
   }
 
+  const filteredRows = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (roleFilter !== 'All' && r.role !== roleFilter) return false;
+      if (term) {
+        const hay = `${r.fullName} ${r.mobileNumber}`.toLowerCase();
+        if (!hay.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [rows, searchTerm, roleFilter]);
+
   return (
-    <div className="p-8 max-w-6xl staff-shell">
-      <header className="flex items-center justify-between mb-6">
+    <div className="px-6 py-6">
+      <header className="flex items-start justify-between gap-4 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Staff accounts</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Bartenders and managers who log into the tablet.
-          </p>
         </div>
-        <Link
-          href="/staff/add"
-          className="btn btn-primary text-sm"
-        >
-          + Add staff
-        </Link>
+        <Link href="/staff/add" className="px-3 py-1.5 text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white rounded-md">+ Add staff</Link>
       </header>
 
       {loading && <p className="text-slate-400">Loading…</p>}
       {error && (
-        <p className="text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-4 py-3 mb-4">
-          {error}
-        </p>
+        <p className="mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>
       )}
 
-      {!loading && rows.length === 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">
-          No staff yet — add your first bartender to get started.
-        </div>
-      )}
+      {/* Staff table card (panel centered; empty state shown as a rounded card) */}
+      <div className="max-w-6xl mx-auto">
+        <section className="panel">
+          <div className="flex items-center justify-between p-6 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-700">Staff accounts ({rows.length})</h3>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search staff…"
+                className="px-3 py-1.5 text-sm border border-slate-200 rounded-md w-52"
+              />
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value === 'All' ? 'All' : e.target.value)}
+                className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white"
+              >
+                <option value="All">All Roles</option>
+                <option value="Manager">Manager</option>
+                <option value="Bartender">Bartender</option>
+              </select>
+            </div>
+          </div>
 
-      {rows.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-              <tr>
-                <th className="px-3 py-2 text-left">Name</th>
-                <th className="px-3 py-2 text-left">Role</th>
-                <th className="px-3 py-2 text-left">Mobile</th>
-                <th className="px-3 py-2 text-left">Last login</th>
-                <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-right">Pours today</th>
-                <th className="px-3 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className={r.isActive ? 'hover:bg-slate-50' : 'opacity-60 hover:bg-slate-50'}>
-                  <td className="px-3 py-2 font-medium text-slate-900">{r.fullName}</td>
-                  <td className="px-3 py-2">
-                    <RoleBadge role={r.role} />
-                  </td>
-                  <td className="px-3 py-2 text-slate-600">{r.mobileNumber}</td>
-                  <td className="px-3 py-2 text-slate-600 tabular-nums">
-                    {r.lastLoginAtUtc ? new Date(r.lastLoginAtUtc).toLocaleDateString() : 'Never'}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.isActive ? (
-                      <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Active</span>
-                    ) : (
-                      <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-600">Inactive</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{r.poursToday}</td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex justify-end items-center gap-2">
-                      <Link
-                        href={`/staff/${r.id}/edit`}
-                        className="text-xs font-semibold text-slate-700 hover:bg-slate-100 px-2 py-1 rounded border border-slate-200"
-                      >
-                        Edit
-                      </Link>
-                      {r.isActive ? (
-                        <button
-                          onClick={() => setPendingDeactivate(r)}
-                          className="text-xs font-semibold text-rose-700 hover:bg-rose-50 px-2 py-1 rounded"
-                        >
-                          Deactivate
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => toggleActive(r, true)}
-                          disabled={busy}
-                          className="text-xs font-semibold text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded"
-                        >
-                          Reactivate
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+          {loading ? (
+            <div className="p-6 text-center text-slate-400">Loading…</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-[#1e1e26] text-[12px] font-bold uppercase tracking-wider text-[rgb(248_243_234_/_0.5)]">
+                  <tr>
+                    <th className="px-6 py-4 text-left">NAME</th>
+                    <th className="px-6 py-4 text-left">ROLE</th>
+                    <th className="px-6 py-4 text-left">MOBILE</th>
+                    <th className="px-6 py-4 text-left">LAST LOGIN</th>
+                    <th className="px-6 py-4 text-left">STATUS</th>
+                    <th className="px-6 py-4 text-right">POURS TODAY</th>
+                    <th className="px-6 py-4 text-right">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-orange-900/10 bg-white">
+                  {filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-6">
+                        <div className="rounded-xl bg-white p-10 text-center text-slate-500">
+                          No staff yet — add your first bartender to get started.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows.map((r) => (
+                      <tr key={r.id} className={r.isActive ? '' : 'opacity-60'}>
+                        <td className="px-6 py-4 font-medium text-slate-900">{r.fullName}</td>
+                        <td className="px-6 py-4"><RoleBadge role={r.role} /></td>
+                        <td className="px-6 py-4 text-slate-600">{r.mobileNumber}</td>
+                        <td className="px-6 py-4 text-slate-600 tabular-nums">{r.lastLoginAtUtc ? new Date(r.lastLoginAtUtc).toLocaleDateString() : 'Never'}</td>
+                        <td className="px-6 py-4">{r.isActive ? (<span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">Active</span>) : (<span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500">Inactive</span>)}</td>
+                        <td className="px-6 py-4 text-right tabular-nums">{r.poursToday}</td>
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-2 justify-end">
+                            <Link href={`/staff/${r.id}/edit`} className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded hover:bg-white">Edit</Link>
+                            {r.isActive ? (
+                              <button onClick={() => setPendingDeactivate(r)} className="px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 rounded">Deactivate</button>
+                            ) : (
+                              <button onClick={() => toggleActive(r, true)} disabled={busy} className="px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded">Reactivate</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
 
       {pendingDeactivate && (
         <DeactivateStaffModal
