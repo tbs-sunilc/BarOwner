@@ -59,7 +59,7 @@ export default function StaffPage() {
   }
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-8 max-w-6xl staff-shell">
       <header className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Staff accounts</h1>
@@ -69,7 +69,7 @@ export default function StaffPage() {
         </div>
         <Link
           href="/staff/add"
-          className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-sm transition"
+          className="btn btn-primary text-sm"
         >
           + Add staff
         </Link>

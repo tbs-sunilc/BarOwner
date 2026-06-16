@@ -30,7 +30,7 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
 
   return (
     <AuthGuard allowedTokens={['sipsave-staff-access-token']}>
-      <div className="min-h-screen bg-ivory text-ink font-sans">
+      <div className="min-h-screen bg-ivory text-ink font-sans staff-shell">
         <style jsx global>{`
           .btn-tablet {
           @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all active:scale-95 border;
@@ -101,7 +101,7 @@ export default function TabletLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="p-6 max-w-5xl mx-auto">
+      <main className="p-6 w-full max-w-7xl mx-auto">
         {children}
       </main>
 

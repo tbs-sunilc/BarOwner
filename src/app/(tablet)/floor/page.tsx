@@ -209,7 +209,7 @@ export default function FloorPage() {
 
   const clearFilters = () => setActiveFilters(new Set());
 
-  // ─── table click ──────────────────────────────────────────────────────────
+  // ─── table click + quick actions ───────────────────────────────────────────
   const handleTableClick = (tableId: number) => {
     const table = state.tables.find(t => t.id === tableId);
     if (!table) return;
@@ -224,6 +224,17 @@ export default function FloorPage() {
     } else if (table.status === 'occupied') {
       router.push('/customer/lookup');
     }
+  };
+
+  const handleServe = (tableId: number, e?: any) => {
+    e?.stopPropagation();
+    // Quick action: jump to queue with table context (placeholder)
+    router.push(`/queue?tableId=${tableId}`);
+  };
+
+  const handleLookup = (tableId: number, e?: any) => {
+    e?.stopPropagation();
+    router.push(`/customer/lookup?tableId=${tableId}`);
   };
 
   // ─── connection badge ──────────────────────────────────────────────────────
@@ -299,8 +310,8 @@ export default function FloorPage() {
         </p>
       )}
 
-      {/* Floor Plan Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-5">
+      {/* Floor Plan Grid (auto-fit, denser, action-oriented) */}
+      <div className="grid gap-6 justify-center items-start [grid-template-columns:repeat(auto-fit,minmax(160px,220px))]">
         {visibleTables.length === 0 && (
           <div className="col-span-full bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center">
             <p className="text-slate-700 font-bold">No tables match this filter</p>
@@ -313,49 +324,61 @@ export default function FloorPage() {
             </button>
           </div>
         )}
+
         {visibleTables.map((table) => {
-          let toneClass = '';
-          let badgeText = '';
-          let badgeClass = '';
-          let subText = '';
+          console.log(table)
+          const displayNumber = table.tableNumber ?? table.id;
+          const isOccupied = table.status === 'occupied';
+          const isPending = table.status === 'pour-pending';
+          const isReserved = table.status === 'reserved';
 
-          if (table.status === 'occupied') {
-            toneClass  = 'border-[#4338ca] bg-[#eef2ff] text-indigo-900';
-            badgeClass = 'bg-indigo-200 text-indigo-800';
-            badgeText  = `${table.guests} guests`;
-            subText    = `Session: ${table.sessionTime}`;
-          } else if (table.status === 'pour-pending') {
-            toneClass  = 'border-[#e11d48] bg-[#fff1f2] text-rose-900 ring-2 ring-rose-200';
-            badgeClass = 'bg-rose-200 text-rose-800';
-            badgeText  = '🔔 Pour req!';
-            subText    = `${table.guests} guest · ${table.sessionTime}`;
-          } else if (table.status === 'reserved') {
-            toneClass  = 'border-[#d97706] bg-[#fffbeb] text-amber-900';
-            badgeClass = 'bg-amber-200 text-amber-800';
-            badgeText  = `Reserved ${table.sessionTime}`;
-            subText    = table.details || 'Reservation';
-          } else {
-            toneClass  = 'border-[#e2e8f0] bg-[#f8fafc] text-slate-600';
-            badgeClass = 'bg-slate-200 text-slate-600';
-            badgeText  = 'Available';
-            subText    = 'Tap to host';
-          }
+          const statusClass = isOccupied
+            ? 'ftile--occupied'
+            : isPending
+              ? 'ftile--pour-pending'
+              : isReserved
+                ? 'ftile--reserved'
+                : 'ftile--available';
 
+          const badgeClass = isOccupied
+            ? 'ftile-badge--occupied'
+            : isPending
+              ? 'ftile-badge--pending'
+              : isReserved
+                ? 'ftile-badge--reserved'
+                : 'ftile-badge--available';
+
+          const badgeText = isOccupied
+            ? `${table.guests ?? 1} guests`
+            : isPending
+              ? '🔔 Pour req!'
+              : isReserved
+                ? `Reserved ${table.sessionTime ?? ''}`
+                : 'Available';
+
+          let subText = 'Tap to host';
           if (table.customerName && table.status !== 'available') {
             subText = table.sessionTime
               ? `${table.customerName} · ${table.sessionTime}`
               : table.customerName;
+          } else if (isPending) {
+            subText = `${table.guests ?? 1} guest · ${table.sessionTime ?? ''}`;
+          } else if (isOccupied) {
+            subText = `Session: ${table.sessionTime ?? '-'} `;
           }
 
           return (
             <div
               key={table.id}
               onClick={() => handleTableClick(table.id)}
-              className={`ftile flex flex-col items-center justify-center min-h-[140px] ${toneClass}`}
+              className={`ftile ${statusClass}`}
             >
-              <div className="font-bold text-2xl mb-2">Table {table.id}</div>
-              <span className={`badge-tablet ${badgeClass} mb-2 inline-block`}>{badgeText}</span>
-              <p className="text-xs font-semibold opacity-80">{subText}</p>
+                  <div className="w-full flex flex-col items-center justify-center">
+                    <div className="text-[11px] font-semibold text-slate-400">Table</div>
+                    <div className={`badge-tablet ${badgeClass} mt-1`}>{badgeText}</div>
+                    <div className="font-bold text-2xl text-ink-2 mt-3">{displayNumber}</div>
+                    <div className="mt-1 text-xs text-slate-500 truncate w-full text-center">{subText}</div>
+                  </div>
             </div>
           );
         })}

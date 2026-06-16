@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import AuthGuard from '@/components/auth/AuthGuard';
@@ -10,9 +11,12 @@ import AuthGuard from '@/components/auth/AuthGuard';
  * Bar name is a placeholder until Phase 8 wires the owner-session DTO.
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isStaff = pathname?.startsWith('/staff') ?? false;
+
   return (
-    <AuthGuard allowedTokens={['sipsave-barowner-access-token']}>
-      <div className="page-shell lg:flex">
+    <AuthGuard allowedTokens={["sipsave-barowner-access-token"]}>
+      <div className={["page-shell lg:flex", isStaff ? 'staff-shell' : ''].join(' ')}>
         <Sidebar barName="Your Bar" />
         <div className="min-w-0 flex-1">
           <DashboardHeader fallbackBarName="Your Bar" />
