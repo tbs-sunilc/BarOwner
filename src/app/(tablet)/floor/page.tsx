@@ -371,7 +371,7 @@ export default function FloorPage() {
             <div
               key={table.id}
               onClick={() => handleTableClick(table.id)}
-              className={`ftile ${statusClass}`}
+              className={`panel ftile ${statusClass}`}
             >
                   <div className="w-full flex flex-col items-center justify-center">
                     <div className="text-[11px] font-semibold text-slate-400">Table</div>

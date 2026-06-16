@@ -597,14 +597,14 @@ textarea:focus {
 }
 
 .staff-shell .ftile {
-  background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.96) 100%);
+  background: var(--color-surface);
   min-height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.25rem 1rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 22px -12px rgba(59,53,120,0.06);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border);
   transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
   text-align: center;
@@ -624,23 +624,23 @@ textarea:focus {
 }
 
 .staff-shell .ftile--occupied {
-  border-left: 6px solid #4338ca;
-  background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
+  border-top: 4px solid #4338ca;
+  background: var(--color-surface);
 }
 
 .staff-shell .ftile--pour-pending {
-  border-left: 6px solid #e11d48;
-  background: linear-gradient(180deg, #fff3f4 0%, #ffffff 100%);
+  border-top: 4px solid #e11d48;
+  background: var(--color-surface);
 }
 
 .staff-shell .ftile--reserved {
-  border-left: 6px solid #d97706;
-  background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
+  border-top: 4px solid #d97706;
+  background: var(--color-surface);
 }
 
 .staff-shell .ftile--available {
-  border-left: 6px solid #e2e8f0;
-  background: linear-gradient(180deg, #fbfeff 0%, #ffffff 100%);
+  border-top: 4px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .staff-shell .ftile-badge--occupied { background: #eef2ff; color: #4338ca; border: 1px solid rgba(67,56,202,0.08); }

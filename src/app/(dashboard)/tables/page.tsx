@@ -88,13 +88,9 @@ export default function TablesPage() {
     <div className="px-6 py-6">
       <header className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900">
             Tables &amp; QR Codes
-          </h2>
-          <p className="text-xs text-slate-500">
-            Create tables, download QR stickers, and stick them on your physical
-            tables.
-          </p>
+          </h1>
         </div>
         <div className="flex gap-2">
           <button
@@ -171,26 +167,28 @@ export default function TablesPage() {
         </div>
       )}
 
-      {/* Table list */}
-      <section className="rounded-xl bg-white border border-slate-200 shadow-sm">
-        <div className="px-4 py-3 border-b border-slate-100">
+      {/* Table card */}
+      <section className="panel">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-sm font-semibold text-slate-700">
             Tables ({tables.length})
           </h3>
+          <div />
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+            <thead className="bg-[#1e1e26] text-[12px] font-bold uppercase tracking-wider text-[rgb(248_243_234_/_0.5)]">
               <tr>
-                <Th>Table No.</Th>
-                <Th>Floor Section</Th>
-                <Th align="right">Capacity</Th>
-                <Th>Status</Th>
-                <Th>QR Token</Th>
-                <Th>Actions</Th>
+                <th className="px-6 py-4 text-left">Table No.</th>
+                <th className="px-6 py-4 text-left">Floor Section</th>
+                <th className="px-6 py-4 text-right">Capacity</th>
+                <th className="px-6 py-4 text-left">Status</th>
+                <th className="px-6 py-4 text-left">QR Token</th>
+                <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-orange-900/10 bg-white">
               {loading && (
                 <tr>
                   <td colSpan={6} className="text-center py-8 text-slate-400">
@@ -247,21 +245,17 @@ function Kpi({
   label: string;
   value: number;
   subtitle: string;
-  accent: "violet" | "amber" | "green";
+  accent: 'violet' | 'amber' | 'green';
 }) {
-  const left =
-    accent === "violet"
-      ? "border-l-violet-600"
-      : accent === "amber"
-        ? "border-l-amber-500"
-        : "border-l-green-500";
+  const top =
+    accent === 'violet'
+      ? 'border-t-violet-600'
+      : accent === 'amber'
+      ? 'border-t-amber-500'
+      : 'border-t-green-500';
   return (
-    <div
-      className={`bg-white border border-slate-200 ${left} border-l-4 rounded-md px-4 py-3`}
-    >
-      <p className="text-[11px] uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
+    <div className={`panel p-4 border-t-4 ${top}`}>
+      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</p>
       <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{value}</p>
       <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>
     </div>
@@ -294,44 +288,34 @@ function TableRow({
   onDownloadQr: () => void;
 }) {
   const rowBg = table.isActive
-    ? "bg-white hover:bg-slate-50"
-    : "bg-slate-50/60 text-slate-400 hover:bg-slate-100";
+    ? 'bg-white hover:bg-slate-50'
+    : 'bg-slate-50/60 text-slate-400 hover:bg-slate-100';
   return (
-    <tr className={`${rowBg} border-t border-slate-100 transition`}>
-      <td className="px-3 py-2.5 font-semibold text-slate-800">
-        {table.tableNumber}
-      </td>
-      <td className="px-3 py-2.5 text-slate-500">
-        {table.floorSection ?? <span className="text-slate-300">—</span>}
-      </td>
-      <td className="px-3 py-2.5 text-right">
-        {table.capacity ?? <span className="text-slate-300">—</span>}
-      </td>
-      <td className="px-3 py-2.5">
+    <tr className={`${rowBg} border-b border-orange-900/10 transition`}>
+      <td className="px-6 py-4 font-semibold text-slate-800">{table.tableNumber}</td>
+      <td className="px-6 py-4 text-slate-500">{table.floorSection ?? <span className="text-slate-300">—</span>}</td>
+      <td className="px-6 py-4 text-right">{table.capacity ?? <span className="text-slate-300">—</span>}</td>
+      <td className="px-6 py-4">
         {table.isActive ? (
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
-            Active
-          </span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">Active</span>
         ) : (
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500">
-            Inactive
-          </span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500">Inactive</span>
         )}
       </td>
-      <td className="px-3 py-2.5">
-        <code className="text-[10px] text-slate-400 font-mono">
-          {table.qrToken.slice(0, 12)}…
-        </code>
+      <td className="px-6 py-4">
+        <code className="text-[10px] text-slate-400 font-mono">{table.qrToken.slice(0, 12)}…</code>
       </td>
-      <td className="px-3 py-2.5">
-        <button
-          type="button"
-          onClick={onDownloadQr}
-          disabled={downloadingQr}
-          className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded hover:bg-white disabled:opacity-50 disabled:cursor-wait"
-        >
-          {downloadingQr ? "…" : "Download QR"}
-        </button>
+      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onDownloadQr}
+            disabled={downloadingQr}
+            className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded hover:bg-white disabled:opacity-50 disabled:cursor-wait"
+          >
+            {downloadingQr ? '…' : 'Download QR'}
+          </button>
+        </div>
       </td>
     </tr>
   );

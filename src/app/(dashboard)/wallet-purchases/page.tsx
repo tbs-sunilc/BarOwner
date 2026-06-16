@@ -35,7 +35,6 @@ export default function WalletPurchasesPage() {
   return (
     <div className="p-8 max-w-7xl">
       <header className="mb-6">
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Wallets</p>
         <h1 className="text-2xl font-bold text-slate-900">Wallet purchases</h1>
       </header>
 
@@ -48,39 +47,42 @@ export default function WalletPurchasesPage() {
 
       {!loading && !error && (
         <div className="panel overflow-hidden">
+          <div className="p-6 border-b border-border">
+            <h3 className="text-lg font-bold text-ink">Wallet purchases</h3>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#1e1e26] text-[10px] font-bold uppercase tracking-wider text-white/60">
+              <thead className="bg-[#1e1e26] text-[12px] font-bold uppercase tracking-wider text-[rgb(248_243_234_/_0.5)]">
                 <tr>
-                  <th className="px-4 py-3 text-left">Customer</th>
-                  <th className="px-4 py-3 text-left">Bottle</th>
-                  <th className="px-4 py-3 text-left">Volume</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3 text-left">Method</th>
-                  <th className="px-4 py-3 text-left">Captured</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-center">Action</th>
+                  <th className="px-6 py-4 text-left">CUSTOMER</th>
+                  <th className="px-6 py-4 text-left">BOTTLE</th>
+                  <th className="px-6 py-4 text-left">VOLUME</th>
+                  <th className="px-6 py-4 text-right">AMOUNT</th>
+                  <th className="px-6 py-4 text-left">METHOD</th>
+                  <th className="px-6 py-4 text-left">CAPTURED</th>
+                  <th className="px-6 py-4 text-left">STATUS</th>
+                  <th className="px-6 py-4 text-center">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-orange-900/10 bg-white">
                 {rows.map((row) => (
-                  <tr key={row.paymentId} className="bg-white hover:bg-slate-50">
-                    <td className="px-4 py-3">
+                  <tr key={row.paymentId} className="hover:bg-white/5 transition-colors border-b border-orange-900/10">
+                    <td className="px-6 py-4">
                       <p className="font-semibold text-slate-900">{row.customerName}</p>
-                      <p className="text-xs text-slate-500">{row.customerMobile || 'No mobile'}</p>
+                      <p className="text-[11px] text-slate-500">{row.customerMobile || 'No mobile'}</p>
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{row.bottleName}</td>
-                    <td className="px-4 py-3 text-slate-600">{row.volumeMl == null ? '-' : `${row.volumeMl}ml`}</td>
-                    <td className="px-4 py-3 text-right font-bold tabular-nums text-slate-900">
+                    <td className="px-6 py-4 font-medium text-slate-800">{row.bottleName}</td>
+                    <td className="px-6 py-4 text-slate-600">{row.volumeMl == null ? '-' : `${row.volumeMl}ml`}</td>
+                    <td className="px-6 py-4 text-right font-bold tabular-nums text-slate-900">
                       {formatInr(row.amountInPaise)}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{row.paymentMethod || '-'}</td>
-                    <td className="px-4 py-3 text-slate-600">{row.capturedAtUtc ? formatDateTime(row.capturedAtUtc) : '-'}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-6 py-4 text-slate-600">{row.paymentMethod || '-'}</td>
+                    <td className="px-6 py-4 text-slate-600">{row.capturedAtUtc ? formatDateTime(row.capturedAtUtc) : '-'}</td>
+                    <td className="px-6 py-4">
                       <StatusBadge status={row.status} />
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <Link href={`/wallet-purchases/${row.paymentId}`} className="btn btn-sm btn-secondary">
+                    <td className="px-6 py-4 text-center">
+                      <Link href={`/wallet-purchases/${row.paymentId}`} className="btn btn-sm btn-secondary bg-white border-border text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
                         View
                       </Link>
                     </td>
@@ -88,7 +90,7 @@ export default function WalletPurchasesPage() {
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-sm italic text-slate-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-sm italic text-slate-500">
                       No wallet purchases found.
                     </td>
                   </tr>

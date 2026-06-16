@@ -188,8 +188,7 @@ export default function InventoryPage() {
     <div className="px-6 py-6">
       <header className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Inventory Management</h2>
-          <p className="text-xs text-slate-500">Physical stock vs. wallet commitments</p>
+          <h1 className="text-2xl font-bold text-slate-900">Inventory Management</h1>
         </div>
         <div className="flex gap-2">
           <button
@@ -254,8 +253,8 @@ export default function InventoryPage() {
       </div>
 
       {/* Table card */}
-      <section className="rounded-xl bg-white border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+      <section className="panel">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-sm font-semibold text-slate-700">
             Bottle Inventory ({filtered.length} {filtered.length === 1 ? 'SKU' : 'SKUs'})
           </h3>
@@ -286,19 +285,19 @@ export default function InventoryPage() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+            <thead className="bg-[#1e1e26] text-[12px] font-bold uppercase tracking-wider text-[rgb(248_243_234_/_0.5)]">
               <tr>
-                <Th>Bottle</Th>
-                <Th>Shelf / Type</Th>
-                <Th align="right">Sell Price</Th>
-                <Th align="right">Physical</Th>
-                <Th align="right">Committed</Th>
-                <Th align="right">Available</Th>
-                <Th>Status</Th>
-                <Th>Actions</Th>
+                <th className="px-6 py-4 text-left">BOTTLE</th>
+                <th className="px-6 py-4 text-left">SHELF / TYPE</th>
+                <th className="px-6 py-4 text-right">SELL PRICE</th>
+                <th className="px-6 py-4 text-right">PHYSICAL</th>
+                <th className="px-6 py-4 text-right">COMMITTED</th>
+                <th className="px-6 py-4 text-right">AVAILABLE</th>
+                <th className="px-6 py-4 text-left">STATUS</th>
+                <th className="px-6 py-4 text-right">ACTIONS</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-orange-900/10 bg-white">
               {loading && (
                 <tr>
                   <td colSpan={8} className="text-center py-8 text-slate-400">
@@ -357,15 +356,15 @@ function Kpi({
   subtitle: string;
   accent: 'violet' | 'amber' | 'green';
 }) {
-  const left =
+  const top =
     accent === 'violet'
-      ? 'border-l-violet-600'
+      ? 'border-t-violet-600'
       : accent === 'amber'
-      ? 'border-l-amber-500'
-      : 'border-l-green-500';
+      ? 'border-t-amber-500'
+      : 'border-t-green-500';
   return (
-    <div className={`bg-white border border-slate-200 ${left} border-l-4 rounded-md px-4 py-3`}>
-      <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+    <div className={`panel p-4 border-t-4 ${top}`}>
+      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</p>
       <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{value}</p>
       <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>
     </div>
@@ -422,36 +421,36 @@ function InventoryRow({
 
   return (
     <tr
-      className={`${rowBg} cursor-pointer border-t border-slate-100 transition`}
+      className={`${rowBg} cursor-pointer border-b border-orange-900/10 transition`}
       onClick={onEdit}
     >
-      <td className="px-3 py-2.5">
+      <td className="px-6 py-4">
         <div className="font-semibold text-slate-800">{item.brandName}</div>
         <div className="text-[11px] text-slate-400">
           {item.productName}
           {item.subCategory ? ` · ${item.subCategory}` : ''}
         </div>
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-6 py-4">
         <div className="font-medium text-slate-800">
           {categoryNameById.get(item.barInventoryCategoryId) ?? '—'}
         </div>
         <div className="text-[11px] text-slate-400">{item.category || '—'}</div>
       </td>
-      <td className="px-3 py-2.5 text-right font-semibold text-violet-700">
+      <td className="px-6 py-4 text-right font-semibold text-violet-700">
         ₹{item.sellingPrice.toLocaleString('en-IN')}
       </td>
-      <td className="px-3 py-2.5 text-right">{item.bottlesInStock}</td>
-      <td className="px-3 py-2.5 text-right">{item.bottlesCommitted}</td>
-      <td className={`px-3 py-2.5 text-right font-bold ${availableCellColor}`}>
+      <td className="px-6 py-4 text-right">{item.bottlesInStock}</td>
+      <td className="px-6 py-4 text-right">{item.bottlesCommitted}</td>
+      <td className={`px-6 py-4 text-right font-bold ${availableCellColor}`}>
         {item.bottlesAvailableForPurchase}
         {item.stockState === 'LowStock' && ' ⚠️'}
         {item.stockState === 'OutOfStock' && ' 🚫'}
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-6 py-4">
         <StatusBadge state={item.stockState} isAvailable={item.isAvailable} />
       </td>
-      <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex gap-2 justify-end">
           <button
             type="button"

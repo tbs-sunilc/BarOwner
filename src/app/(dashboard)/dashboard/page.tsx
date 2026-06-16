@@ -560,7 +560,7 @@ export default function DashboardPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#1e1e26] text-[10px] font-bold uppercase tracking-wider text-[rgb(248_243_234_/_0.5)]">
+              <thead className="bg-[#1e1e26] text-[12px] font-bold uppercase tracking-wider text-[rgb(248_243_234_/_0.5)]">
                 <tr>
                   <th className="px-6 py-4 text-left">USER</th>
                   <th className="px-6 py-4 text-left">BOTTLE</th>
@@ -572,7 +572,7 @@ export default function DashboardPage() {
                   <th className="px-6 py-4 text-center">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-orange-900/10 bg-[#df8b0b]">
+              <tbody className="divide-y divide-orange-900/10 bg-white">
                 {recentWalletPurchases.length > 0 ? (
                   recentWalletPurchases.map((tx) => {
                     const customerName = tx.customerName || "Unknown customer";
