@@ -154,7 +154,7 @@ export default function PourQueuePage() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <div className="flex items-center gap-3 mb-1">
-                        <span className="text-lg font-bold text-slate-900">Table {req.tableId}</span>
+                        <span className="text-lg font-bold text-slate-900">Table {state?.tables.find(t => t.id === req.tableId)?.tableNumber ?? req.tableId}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${badgeClass}`}>
                           {isUrgent ? '⚠️ ' : ''}{req.waitTime}
                         </span>

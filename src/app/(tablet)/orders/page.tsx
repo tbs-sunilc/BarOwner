@@ -12,16 +12,18 @@ import {
   type MenuItemDto,
 } from '@/lib/api-client';
 import { getActiveBarId } from '@/lib/active-bar';
+import { fetchLiveTableStatus } from '@/lib/tablet-state';
 
 export default function FoodOrdersPage() {
   const [barId, setBarId] = useState<number | null>(null);
   const [orders, setOrders] = useState<FoodOrderDto[]>([]);
+  const [tables, setTables] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showBillModal, setShowBillModal] = useState(false);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
-  const [selectedOrderForBill, setSelectedOrderForBill] = useState<FoodOrderDto | null>(null);
+  const [selectedOrderForBill, setSelectedOrderForBill] = useState<any | null>(null);
   const [newOrderTable, setNewOrderTable] = useState(3);
   const [selectedMenuItemId, setSelectedMenuItemId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -42,12 +44,14 @@ export default function FoodOrdersPage() {
     try {
       setLoading(true);
       setError(null);
-      const [liveOrders, liveMenu] = await Promise.all([
+      const [liveOrders, liveMenu, liveTables] = await Promise.all([
         fetchActiveFoodOrders(id),
         listMenuItems(id, false),
+        fetchLiveTableStatus(id),
       ]);
       setOrders(liveOrders);
       setMenuItems(liveMenu);
+      setTables(liveTables);
       if (liveMenu.length > 0 && selectedMenuItemId == null) setSelectedMenuItemId(liveMenu[0].id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load food orders');
@@ -56,12 +60,12 @@ export default function FoodOrdersPage() {
     }
   }
 
-  async function markServed(order: FoodOrderDto) {
+  async function markServed(orderGroup: any) {
     try {
       setError(null);
-      await serveFoodOrder(order.id);
+      await Promise.all(orderGroup.orders.filter((o: any) => o.status === 'Pending').map((o: any) => serveFoodOrder(o.id)));
       await load();
-      toast(`Table ${order.tableId ?? '-'} food order marked as served`, 's');
+      toast(`Table ${orderGroup.tableNumber ?? '-'}' food order marked as served`, 's');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to mark order served');
     }
@@ -71,9 +75,9 @@ export default function FoodOrdersPage() {
     if (!selectedOrderForBill) return;
     try {
       setError(null);
-      await settleFoodOrder(selectedOrderForBill.id);
+      await Promise.all(selectedOrderForBill.orders.map((o: any) => settleFoodOrder(o.id)));
       await load();
-      toast(`Bill settled for Table ${selectedOrderForBill.tableId ?? '-'}`, 's');
+      toast(`Bill settled for Table ${selectedOrderForBill.tableNumber ?? selectedOrderForBill.tableId ?? '-'}`, 's');
       setShowBillModal(false);
       setSelectedOrderForBill(null);
     } catch (err) {
@@ -117,6 +121,33 @@ export default function FoodOrdersPage() {
     setShowNewOrderModal(true);
   }
 
+  const groupedOrders = useMemo(() => {
+    const map = new Map<number, any>();
+    for (const o of orders) {
+      if (!o.tableId) continue;
+      if (!map.has(o.tableId)) {
+        const t = tables.find(tb => tb.id === o.tableId);
+        map.set(o.tableId, {
+          tableId: o.tableId,
+          tableNumber: t?.tableNumber ?? o.tableId.toString(),
+          customer: o.customer ?? t?.customerName ?? 'Guest',
+          orders: [],
+          total: 0,
+          status: 'Served',
+          timeLabel: o.timeLabel,
+        });
+      }
+      const group = map.get(o.tableId)!;
+      group.orders.push(o);
+      group.total += o.total;
+      if (o.status === 'Pending') {
+        group.status = 'Pending';
+        group.timeLabel = o.timeLabel;
+      }
+    }
+    return Array.from(map.values());
+  }, [orders, tables]);
+
   if (loading) {
     return <div className="p-20 text-center text-slate-400 animate-pulse font-black uppercase tracking-widest text-xs">Loading orders...</div>;
   }
@@ -142,9 +173,9 @@ export default function FoodOrdersPage() {
         <div className="lg:col-span-2">
           <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-600">Active Table Orders ({orders.length})</h3>
           <div className="space-y-4">
-            {orders.map((order) => {
-              const isPending = order.status === 'Pending';
-              const isServed = order.status === 'Served';
+            {groupedOrders.map((order) => {
+              const isPending = order?.status === 'Pending';
+              const isServed = order?.status === 'Served';
               const badgeClass = isPending
                 ? 'bg-rose-100 text-rose-700 border border-rose-200'
                 : isServed
@@ -152,11 +183,11 @@ export default function FoodOrdersPage() {
                   : 'bg-amber-100 text-amber-700 border border-amber-200';
 
               return (
-                <div key={order.id} className={`rounded-xl border p-5 transition-all ${isPending ? 'border-[#e11d48] bg-[#fff1f2]' : 'border-slate-200 bg-white hover:shadow-md'}`}>
+                <div key={order.tableId || order.id} className={`rounded-xl border p-5 transition-all ${isPending ? 'border-[#e11d48] bg-[#fff1f2]' : 'border-slate-200 bg-white hover:shadow-md'}`}>
                   <div className="mb-4 flex items-start justify-between border-b border-slate-100 pb-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-lg font-bold text-slate-900">Table {order.tableId ?? '-'} · {order.customer ?? 'Guest'}</span>
+                        <span className="text-lg font-bold text-slate-900">Table {order.tableNumber ?? '-'} · {order.customer ?? 'Guest'}</span>
                         <span className={`rounded px-2 py-0.5 text-xs font-bold ${badgeClass}`}>{order.status}</span>
                       </div>
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{order.timeLabel}</p>
@@ -165,8 +196,8 @@ export default function FoodOrdersPage() {
                   </div>
 
                   <div className="mb-6 space-y-3">
-                    {order.items.map((item, idx) => (
-                      <div key={`${order.id}-${idx}`} className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                    {order.orders.flatMap((o: any) => o.items.map((i: any) => ({ ...i, __orderId: o.id }))).map((item, idx) => (
+                      <div key={`${item.__orderId}-${idx}`} className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
                         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-slate-200">
                           {menuItems.find((menuItem) => menuItem.id === item.menuItemId)?.imageUrl ? (
                             <img
@@ -256,23 +287,23 @@ export default function FoodOrdersPage() {
           <div className="w-full max-w-md rounded-[32px] border border-slate-100 bg-white p-8 shadow-2xl">
             <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <h3 className="text-xl font-black tracking-tight text-slate-900">Table {selectedOrderForBill.tableId ?? '-'} Invoice</h3>
+                <h3 className="text-xl font-black tracking-tight text-slate-900">Table {selectedOrderForBill.tableNumber ?? selectedOrderForBill.tableId ?? '-'} Invoice</h3>
                 <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Settle Open Food Tab</p>
               </div>
               <button onClick={() => setShowBillModal(false)} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 font-black text-slate-400">x</button>
             </div>
 
             <div className="mb-8 space-y-4">
-              {selectedOrderForBill.items.map((item, idx) => (
+              {selectedOrderForBill.orders.flatMap((o: any) => o.items).map((item, idx) => (
                 <div key={idx} className="flex justify-between text-xs font-bold text-slate-600">
                   <span>{item.name} x{item.qty}</span>
                   <span>₹{(item.price * item.qty).toFixed(2)}</span>
                 </div>
               ))}
               <div className="h-px bg-slate-200" />
-              <BillRow label="Subtotal" value={selectedOrderForBill.subtotal ?? selectedOrderForBill.total} />
-              <BillRow label="GST" value={selectedOrderForBill.gst ?? 0} />
-              <BillRow label="Service Charge" value={selectedOrderForBill.serviceCharge ?? 0} />
+              <BillRow label="Subtotal" value={selectedOrderForBill.orders.reduce((sum: number, o: any) => sum + (o.subtotal ?? o.total), 0)} />
+              <BillRow label="GST" value={selectedOrderForBill.orders.reduce((sum: number, o: any) => sum + (o.gst ?? 0), 0)} />
+              <BillRow label="Service Charge" value={selectedOrderForBill.orders.reduce((sum: number, o: any) => sum + (o.serviceCharge ?? 0), 0)} />
               <div className="h-px bg-slate-200" />
               <div className="flex items-baseline justify-between text-sm font-black uppercase tracking-wider text-indigo-950">
                 <span>Grand Total</span>
@@ -302,7 +333,7 @@ export default function FoodOrdersPage() {
               <label className="block">
                 <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Select Table</span>
                 <select value={newOrderTable} onChange={(e) => setNewOrderTable(Number(e.target.value))} className="w-full rounded-xl border-2 border-slate-100 bg-slate-50 p-3 text-xs font-bold">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => <option key={num} value={num}>Table {num}</option>)}
+                  {tables.map((t) => <option key={t.id} value={t.id}>{t.tableNumber}</option>)}
                 </select>
               </label>
 

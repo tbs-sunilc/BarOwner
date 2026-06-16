@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getActiveBarId } from '@/lib/active-bar';
+import { getTabletState } from '@/lib/tablet-state';
 import {
   ApiError,
   fetchPourRequest,
@@ -115,6 +116,9 @@ export default function ServePourPage() {
   }, [pourRequestId]);
 
   const customerName = row?.userDisplayName?.trim() || 'Customer';
+  const tabletState = typeof window !== 'undefined' ? getTabletState() : null;
+  const targetTable = tabletState?.tables.find(t => t.id === row?.barTableId);
+  const tableDisplay = targetTable?.tableNumber ?? (row?.barTableId != null ? `Table ${row.barTableId}` : '—');
   const tableId = row?.barTableId ?? null;
   const requestedMl = row?.requestedMl ?? 0;
   const bottleName = useMemo(() => {
@@ -248,7 +252,7 @@ export default function ServePourPage() {
               <div>
                 <p className="font-black text-lg text-slate-900">{customerName}</p>
                 <p className="text-sm font-semibold text-slate-600 mt-0.5">
-                  {tableId != null ? `Table ${tableId}` : 'Table —'} · Pour request: {requestedMl}ml
+                  {tableDisplay} · Pour request: {requestedMl}ml
                 </p>
               </div>
             </div>
@@ -371,7 +375,7 @@ export default function ServePourPage() {
 
           <div className="bg-[#eef2ff] border border-indigo-100 rounded-xl p-5 space-y-3 text-sm">
             <PreviewRow label="Customer" value={customerName} />
-            <PreviewRow label="Table" value={tableId != null ? `Table ${tableId}` : '—'} />
+            <PreviewRow label="Table" value={tableDisplay} />
             <PreviewRow label="Bottle" value={bottleName} />
             <PreviewRow label="Amount to serve" value={`${servedMl} ml`} highlight />
             <div className="border-t border-indigo-200 pt-3 flex justify-between items-baseline">
