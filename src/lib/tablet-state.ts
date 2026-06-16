@@ -2,6 +2,8 @@
 
 export type TableState = {
   id: number;
+  tableNumber: string;
+  floorSection?: string;
   status: 'occupied' | 'pour-pending' | 'available' | 'reserved';
   guests: number;
   sessionTime: string;
@@ -85,43 +87,43 @@ const DEFAULT_STATE: TabletState = {
     shiftStart: '6:00 PM'
   },
   tables: [
-    { id: 1, status: 'occupied', guests: 2, sessionTime: '45 min', customerName: 'Kiran B.' },
-    { id: 2, status: 'pour-pending', guests: 1, sessionTime: '20 min', customerName: 'Arjun M.' },
-    { id: 3, status: 'available', guests: 0, sessionTime: '' },
-    { id: 4, status: 'occupied', guests: 4, sessionTime: '1h 12m', customerName: 'Meena R.' },
-    { id: 5, status: 'reserved', guests: 0, sessionTime: '9:30 PM', details: 'Priya S.' },
-    { id: 6, status: 'pour-pending', guests: 3, sessionTime: '55 min', customerName: 'Priya S.' },
-    { id: 7, status: 'occupied', guests: 2, sessionTime: '26 min', customerName: 'Arjun M.' },
-    { id: 8, status: 'available', guests: 0, sessionTime: '' },
-    { id: 9, status: 'available', guests: 0, sessionTime: '' },
-    { id: 10, status: 'pour-pending', guests: 1, sessionTime: '5 min', customerName: 'Rajan K.' }
+    { id: 1, tableNumber: 'T1', floorSection: 'GROUND', status: 'occupied', guests: 2, sessionTime: '45 min', customerName: 'Kiran B.' },
+    { id: 2, tableNumber: 'T2', floorSection: 'GROUND', status: 'pour-pending', guests: 1, sessionTime: '20 min', customerName: 'Arjun M.' },
+    { id: 3, tableNumber: 'T3', floorSection: 'GROUND', status: 'available', guests: 0, sessionTime: '' },
+    { id: 4, tableNumber: 'T4', floorSection: 'GROUND', status: 'occupied', guests: 4, sessionTime: '1h 12m', customerName: 'Meena R.' },
+    { id: 5, tableNumber: 'T5', floorSection: 'GROUND', status: 'reserved', guests: 0, sessionTime: '9:30 PM', details: 'Priya S.' },
+    { id: 6, tableNumber: 'VIP-1', floorSection: 'TERRACE', status: 'pour-pending', guests: 3, sessionTime: '55 min', customerName: 'Priya S.' },
+    { id: 7, tableNumber: 'VIP-2', floorSection: 'TERRACE', status: 'occupied', guests: 2, sessionTime: '26 min', customerName: 'Arjun M.' },
+    { id: 8, tableNumber: 'VIP-3', floorSection: 'TERRACE', status: 'available', guests: 0, sessionTime: '' },
+    { id: 9, tableNumber: 'VIP-4', floorSection: 'TERRACE', status: 'available', guests: 0, sessionTime: '' },
+    { id: 10, tableNumber: 'VIP-5', floorSection: 'TERRACE', status: 'pour-pending', guests: 1, sessionTime: '5 min', customerName: 'Rajan K.' }
   ],
   pourQueue: [
-    { 
+    {
       id: 5002,
-      tableId: 2, 
-      customer: 'Arjun M.', 
-      bottle: 'Johnnie Walker Black Label', 
-      walletBalance: 338, 
+      tableId: 2,
+      customer: 'Arjun M.',
+      bottle: 'Johnnie Walker Black Label',
+      walletBalance: 338,
       requestedAmount: 60,
       waitTime: '4 min',
       urgent: true
     },
-    { 
+    {
       id: 5006,
-      tableId: 6, 
-      customer: 'Priya S.', 
-      bottle: 'Glenfiddich 12 Year', 
-      walletBalance: 420, 
+      tableId: 6,
+      customer: 'Priya S.',
+      bottle: 'Glenfiddich 12 Year',
+      walletBalance: 420,
       requestedAmount: 90,
       waitTime: '2 min'
     },
-    { 
+    {
       id: 5010,
-      tableId: 10, 
-      customer: 'Rajan K.', 
-      bottle: 'Absolut Vodka', 
-      walletBalance: 220, 
+      tableId: 10,
+      customer: 'Rajan K.',
+      bottle: 'Absolut Vodka',
+      walletBalance: 220,
       requestedAmount: 30,
       waitTime: 'Just now'
     }
@@ -147,18 +149,18 @@ const DEFAULT_STATE: TabletState = {
     kycStatus: 'Verified',
     table: 'Table 7',
     wallets: [
-      { 
-        id: 1, 
-        name: 'Johnnie Walker Black Label', 
-        balance: 338, 
-        total: 750, 
-        lastServed: '35 min ago' 
+      {
+        id: 1,
+        name: 'Johnnie Walker Black Label',
+        balance: 338,
+        total: 750,
+        lastServed: '35 min ago'
       },
-      { 
-        id: 2, 
-        name: 'Absolut Vodka', 
-        balance: 168, 
-        total: 750, 
+      {
+        id: 2,
+        name: 'Absolut Vodka',
+        balance: 168,
+        total: 750,
         lastServed: '1 hour ago',
         warning: 'Expires in 7 days'
       }
@@ -201,9 +203,11 @@ export async function fetchLiveTableStatus(barId: number): Promise<TableState[]>
   try {
     const { listBarTablesWithStatus } = await import('./api-client');
     const apiTables = await listBarTablesWithStatus(barId);
-    
+
     return apiTables.map(t => ({
       id: t.id,
+      tableNumber: t.tableNumber,
+      floorSection: t.floorSection || undefined,
       status: mapApiStatusToTableStatus(t.status),
       guests: t.activeGuestCount || 0,
       sessionTime: t.sessionTimeLabel || '',

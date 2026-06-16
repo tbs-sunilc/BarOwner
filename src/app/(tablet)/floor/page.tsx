@@ -351,9 +351,14 @@ export default function FloorPage() {
             <div
               key={table.id}
               onClick={() => handleTableClick(table.id)}
-              className={`ftile flex flex-col items-center justify-center min-h-[140px] ${toneClass}`}
+              className={`ftile flex flex-col items-center justify-center min-h-[140px] relative ${toneClass}`}
             >
-              <div className="font-bold text-2xl mb-2">Table {table.id}</div>
+              {table.floorSection && (
+                <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-widest opacity-60">
+                  {table.floorSection}
+                </span>
+              )}
+              <div className="font-bold text-2xl mb-2">{table.tableNumber || `Table ${table.id}`}</div>
               <span className={`badge-tablet ${badgeClass} mb-2 inline-block`}>{badgeText}</span>
               <p className="text-xs font-semibold opacity-80">{subText}</p>
             </div>
