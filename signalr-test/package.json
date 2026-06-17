@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon pourhub.js",
+    "start": "node init && nodemon pourhub.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
