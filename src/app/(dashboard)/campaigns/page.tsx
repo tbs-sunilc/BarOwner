@@ -539,7 +539,7 @@ export default function CampaignsPage() {
               <div className="relative space-y-8 before:absolute before:inset-y-0 before:left-[1.35rem] before:w-0.5 before:bg-slate-100">
                 {WIN_BACK.map((step, index) => (
                   <div key={step.days} className="relative flex gap-6">
-                    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-4 border-white text-sm font-bold shadow-sm ${step.cls === 'pause' ? 'bg-amber-100 text-amber-700' : step.cls === 'stop' ? 'bg-rose-100 text-rose-700' : 'bg-slate-900 text-white'}`}>
+                    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-4 border-white font-bold shadow-sm ${step.cls === 'pause' ? 'bg-amber-100 text-amber-700 text-[9px] uppercase tracking-tighter' : step.cls === 'stop' ? 'bg-rose-100 text-rose-700 text-sm' : 'bg-slate-900 text-white text-sm'}`}>
                       {step.step}
                     </div>
                     <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
