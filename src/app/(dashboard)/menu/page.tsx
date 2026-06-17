@@ -447,7 +447,6 @@ function CategorySection({ title, items, onEdit, onToggle, onDelete }: {
     <div className="relative space-y-3 group/section">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-800">{title} <span className="text-slate-400 text-xs font-medium ml-1">({items.length})</span></h2>
-        <button className="text-xs font-semibold text-[var(--color-accent)] hover:underline">View All &rarr;</button>
       </div>
 
       <div className="relative">
