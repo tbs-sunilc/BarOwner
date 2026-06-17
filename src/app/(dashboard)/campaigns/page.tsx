@@ -589,7 +589,7 @@ export default function CampaignsPage() {
         )}
 
         {activeTab === 'rules' && (
-          <div className="grid gap-8 xl:grid-cols-[1fr_400px]">
+          <div className="grid gap-8 xl:grid-cols-[1fr_400px] items-start">
             <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8">
               <h2 className="mb-6 text-2xl font-bold text-slate-900">Golden Rules</h2>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -611,9 +611,9 @@ export default function CampaignsPage() {
               </div>
             </section>
             
-            <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl">
-              <h3 className="mb-6 text-sm font-bold uppercase tracking-wider text-slate-500">Backend Implementation Checklist</h3>
-              <div className="space-y-3">
+            <section className="flex flex-col overflow-hidden max-h-[70vh] rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl">
+              <h3 className="mb-6 shrink-0 text-sm font-bold uppercase tracking-wider text-slate-500">Backend Implementation Checklist</h3>
+              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto pr-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar]:w-1.5">
                 {CHECKLIST.map((item) => (
                   <div key={item.what} className="rounded-2xl border border-slate-200 bg-white p-4">
                     <div className="flex items-start justify-between gap-4">
