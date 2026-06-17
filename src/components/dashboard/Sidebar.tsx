@@ -25,6 +25,38 @@ const NAV: ReadonlyArray<{ href: string; icon: ReactNode; label: string; exact?:
   { href: '/settings', icon: <IconGear />, label: 'Settings', group: 'account' },
 ];
 
+function UpgradeCard() {
+  return (
+    <div className="px-4 mb-4 mt-2">
+      <div className="relative overflow-hidden rounded-2xl bg-[#0f0f15] p-5 border border-white/5 shadow-2xl group">
+        {/* Background Gradient Layer */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/40 via-transparent to-pink-900/30 opacity-60" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[rgb(255_255_255_/_0.03)] border border-[rgb(255_255_255_/_0.08)] text-indigo-400 group-hover:scale-110 transition-transform">
+              <IconRocket fill />
+            </div>
+            <span className="text-[0.9rem] font-bold text-white">Upgrade to Premium</span>
+          </div>
+          
+          <p className="text-[0.75rem] text-[rgb(248_243_234_/_0.5)] leading-snug mb-5 max-w-[90%]">
+            Unlock all features and grow your business faster.
+          </p>
+          
+          <Link 
+            href="/subscription"
+            className="block w-full text-center py-2.5 rounded-xl bg-gradient-to-r from-[#5c4ae3] to-[#d63384] text-white text-[0.8rem] font-bold shadow-[0_10px_20px_-5px_rgba(214,51,132,0.4)] hover:brightness-110 transition-all active:scale-[0.98]"
+          >
+            Upgrade Now
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 type Props = { barName: string };
 
 export function Sidebar({ barName }: Props) {
@@ -146,7 +178,10 @@ export function Sidebar({ barName }: Props) {
           ))}
         </nav>
 
+        <UpgradeCard />
+
         <div className="border-t border-[var(--color-ink-3)] p-4">
+
           <div className="rounded-2xl border border-[var(--color-ink-3)] bg-[var(--color-ink-2)] p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-ink-3)] text-sm font-semibold text-[var(--color-accent)]">
@@ -258,4 +293,26 @@ function IconMenu() {
 
 function IconArrow() {
   return <BaseIcon><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></BaseIcon>;
+}
+
+function IconRocket({ fill }: { fill?: boolean }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill={fill ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71.79-1.81.2-2.55l-.7-.7a1.85 1.85 0 0 0-2.5 0Z" />
+      <path d="m15 7-6.5 6.5s-1 0-1.5-.5c-.5-.5-.5-1-.5-1.5L13 5l2-2 7 7-2 2Z" />
+      <path d="m9 15 3 3" />
+      <path d="M17 3s-4.75.25-7.75 3.25" />
+      <path d="m11 13 3 3" />
+      <path d="M21 7s-.25 4.75-3.25 7.75" />
+    </svg>
+  );
 }
