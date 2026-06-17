@@ -276,302 +276,384 @@ export default function CampaignsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6 lg:p-8">
-      <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 p-6 text-white shadow-xl">
-        <p className="text-xs uppercase tracking-[0.35em] text-amber-300">SipSave Campaigns</p>
-        <h1 className="mt-2 text-3xl font-semibold text-white">Smart notification builder</h1>
-        <p className="mt-2 max-w-3xl text-sm text-slate-300">
-          Build segmented campaigns, preview personalized copy, and send through the connected campaign API. The UI mirrors your reference flow and the buttons are wired to real data.
-        </p>
-      </div>
-
-      {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{message}</div>}
-      {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
-
-      <div className="flex gap-1 border-b border-slate-200">
-        {[
-          ['campaigns', 'Campaign builder'],
-          ['winback', 'Win-back flow'],
-          ['rules', 'Rules & checklist'],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id as typeof activeTab)}
-            className={`border-b-2 px-4 py-2 text-sm transition ${activeTab === id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'campaigns' && (
-        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5">
-                <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Target audience for this bar</div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {SEGMENTS.map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => setSegment(item.key)}
-                    className={`rounded-2xl border p-4 text-left transition ${segment === item.key ? 'border-amber-500 bg-amber-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                  >
-                    <div className="text-xs uppercase tracking-wider text-slate-500">{item.icon}</div>
-                    <div className="mt-2 text-sm font-semibold text-slate-900">{item.label}</div>
-                    <div className="mt-1 text-xs text-slate-500">{item.desc}</div>
-                    <div className="mt-3 text-2xl font-bold tabular-nums text-slate-900">
-                      {counts ? (item.key === 'power' ? counts.powerRegular : item.key === 'dormant' ? counts.dormant : item.key === 'new' ? counts.newCustomer : item.key === 'bday' ? counts.birthdayMonth : counts.all) : '...'}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-5">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Notification category</div>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => setCategoryFilter(item)}
-                    className={`rounded-full px-4 py-2 text-sm transition ${categoryFilter === item ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    {CATEGORY_LABELS[item]}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-6 mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Choose a template</div>
-              <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1">
-                {mergedTemplates.map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    onClick={() => selectTemplate(tpl.id)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${selectedTemplateId === tpl.id ? 'border-sky-500 bg-sky-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                  >
-                    <div className="text-xs uppercase tracking-wider text-slate-500">{CATEGORY_LABELS[tpl.cat]}</div>
-                    <div className="mt-1 font-semibold text-slate-900">{tpl.backend?.subject ?? 'Suggested subject'}</div>
-                    <p className="mt-2 line-clamp-2 text-sm text-slate-600">{tpl.text}</p>
-                    <div className="mt-2 text-xs text-slate-500">{tpl.time}</div>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-5">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Recent campaigns</div>
-              {campaigns.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">No campaigns sent yet</div>
-              ) : (
-                <div className="overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-slate-500">
-                      <tr>
-                        <th className="py-2">Name</th>
-                        <th>Segment</th>
-                        <th>Recipients</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {campaigns.map((c) => (
-                        <tr key={c.id} className="border-t border-slate-100">
-                          <td className="py-2 font-medium text-slate-900">{c.name}</td>
-                          <td>{c.segment}</td>
-                          <td>{c.totalRecipients}</td>
-                          <td>{c.status}</td>
-                          <td>{new Date(c.createdAt).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-5">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Latest quota summary</div>
-              {quotaSummary.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">No quota data yet</div>
-              ) : (
-                <div className="overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-slate-500">
-                      <tr>
-                        <th className="py-2">User</th>
-                        <th>Sent</th>
-                        <th>Remaining</th>
-                        <th>Limit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quotaSummary.map((row) => (
-                        <tr key={row.userId} className="border-t border-slate-100">
-                          <td className="py-2 font-medium text-slate-900">{row.fullName ?? `User ${row.userId}`}</td>
-                          <td>{row.sentCount}</td>
-                          <td>{row.remainingCount}</td>
-                          <td>{row.limitCount}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
+    <div className="min-h-screen bg-slate-50/50 p-6 lg:p-8">
+      <div className="mx-auto max-w-[1600px] space-y-8">
+        {/* Header */}
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 px-8 py-12 shadow-2xl">
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl"></div>
+          <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-fuchsia-500/20 blur-3xl"></div>
+          <div className="relative z-10">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-indigo-400">SipSave Campaigns</p>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight text-white sm:text-5xl">Smart Notification Builder</h1>
+            <p className="mt-4 max-w-2xl text-lg text-slate-400">
+              Build segmented campaigns, preview personalized copy, and engage your audience through the connected campaign API.
+            </p>
           </div>
+        </div>
 
-          <aside className="space-y-6">
-            <section className="sticky top-6 rounded-3xl border border-slate-200 bg-white p-5">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Compose message</div>
-              <label className="block text-sm">
-                <span className="mb-1 block text-slate-600">Campaign name</span>
-                <input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} className="w-full rounded-xl border-slate-300" />
-              </label>
-              <label className="mt-4 block text-sm">
-                <span className="mb-1 block text-slate-600">Subject</span>
-                <input value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full rounded-xl border-slate-300" />
-              </label>
-              <label className="mt-4 block text-sm">
-                <span className="mb-1 block text-slate-600">Body - use {`{name}, {bottle}, {remaining}`}</span>
-                <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={7} className="w-full rounded-xl border-slate-300 font-mono" />
-              </label>
-              <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
-                <div className="font-medium text-slate-600">Preview</div>
-                <p className="mt-2 whitespace-pre-wrap text-slate-800">{preview || 'Your preview will appear here.'}</p>
-              </div>
-              <label className="mt-4 block text-sm">
-                <span className="mb-1 block text-slate-600">Best send time</span>
-                <input value={sendTime} onChange={(e) => setSendTime(e.target.value)} className="w-full rounded-xl border-slate-300" placeholder="e.g. Friday 5 PM" />
-              </label>
-              <div className="mt-4">
-                <div className="mb-2 text-sm font-medium text-slate-700">Channels</div>
-                <div className="flex gap-4 text-sm">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={pushChecked} onChange={(e) => setPushChecked(e.target.checked)} />
-                    Push
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={whatsAppChecked} onChange={(e) => setWhatsAppChecked(e.target.checked)} />
-                    WhatsApp
-                  </label>
-                </div>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button onClick={() => setScheduleMode('now')} className={`flex-1 rounded-xl border px-3 py-2 ${scheduleMode === 'now' ? 'bg-slate-900 text-white' : 'bg-white'}`}>Send now</button>
-                <button onClick={() => setScheduleMode('schedule')} className={`flex-1 rounded-xl border px-3 py-2 ${scheduleMode === 'schedule' ? 'bg-slate-900 text-white' : 'bg-white'}`}>Schedule</button>
-              </div>
+        {message && <div className="animate-in fade-in slide-in-from-top-2 rounded-2xl border border-emerald-200/50 bg-emerald-50/50 p-4 text-sm font-medium text-emerald-800 backdrop-blur-sm">{message}</div>}
+        {error && <div className="animate-in fade-in slide-in-from-top-2 rounded-2xl border border-rose-200/50 bg-rose-50/50 p-4 text-sm font-medium text-rose-800 backdrop-blur-sm">{error}</div>}
+
+        <div className="flex">
+          <div className="inline-flex rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-200">
+            {[
+              ['campaigns', 'Campaign Builder'],
+              ['winback', 'Win-back Flow'],
+              ['rules', 'Rules & Checklist'],
+            ].map(([id, label]) => (
               <button
-                onClick={() => setConfirmOpen(true)}
-                disabled={!canSend()}
-                className="mt-4 w-full rounded-xl bg-amber-500 px-4 py-3 font-semibold text-white disabled:bg-slate-300"
+                key={id}
+                onClick={() => setActiveTab(id as typeof activeTab)}
+                className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-300 ${activeTab === id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
               >
-                Review send to {selectedCount} users
+                {label}
               </button>
-              {!segment && <p className="mt-2 text-xs text-rose-600">Select a segment to enable send.</p>}
-              {segment && !body.trim() && <p className="mt-2 text-xs text-rose-600">Pick a template or write a message to continue.</p>}
-            </section>
-          </aside>
+            ))}
+          </div>
         </div>
-      )}
 
-      {activeTab === 'winback' && (
-        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Dormant user win-back flow</div>
-            <p className="mb-6 text-sm text-slate-600">User 3+ weeks se nahi aaya? This structured flow recovers them without spamming.</p>
-            <div className="space-y-0">
-              {WIN_BACK.map((step, index) => (
-                <div key={step.days} className="grid grid-cols-[32px_1fr] gap-x-3">
-                  <div className="flex flex-col items-center">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-sm font-semibold ${step.cls === 'pause' ? 'bg-amber-100' : step.cls === 'stop' ? 'bg-rose-100' : ''}`}>{step.step}</div>
-                    {index < WIN_BACK.length - 1 && <div className="my-1 min-h-6 w-px bg-slate-200" />}
+        {activeTab === 'campaigns' && (
+          <div className="space-y-8">
+            <div className="grid gap-8 xl:grid-cols-[1fr_400px]">
+            <div className="space-y-8">
+              <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                   </div>
-                  <div className="pb-5">
-                    <div className="font-medium text-slate-900">{step.days} - {step.type}</div>
-                    <div className="mt-1 text-sm text-slate-600">{step.why}</div>
-                    <div className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm italic text-slate-700">"{step.msg}"</div>
-                    <div className="mt-2 inline-flex rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">{step.time}</div>
+                  <h2 className="text-lg font-bold text-slate-900">Target Audience</h2>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {SEGMENTS.map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => setSegment(item.key)}
+                      className={`group relative overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ${segment === item.key ? 'border-indigo-500 bg-indigo-50/50 shadow-md ring-1 ring-indigo-500/20' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/50'}`}
+                    >
+                      <div className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400 group-hover:text-slate-500">{item.icon}</div>
+                      <div className={`text-sm font-bold ${segment === item.key ? 'text-indigo-900' : 'text-slate-900'}`}>{item.label}</div>
+                      <div className="mt-1 text-xs font-medium text-slate-500">{item.desc}</div>
+                      <div className={`mt-4 text-3xl font-black tracking-tight ${segment === item.key ? 'text-indigo-600' : 'text-slate-900'}`}>
+                        {counts ? (item.key === 'power' ? counts.powerRegular : item.key === 'dormant' ? counts.dormant : item.key === 'new' ? counts.newCustomer : item.key === 'bday' ? counts.birthdayMonth : counts.all) : '...'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-fuchsia-100 text-fuchsia-600">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900">Message Templates</h2>
+                </div>
+                
+                <div className="mb-6 flex flex-wrap gap-2">
+                  {CATEGORIES.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setCategoryFilter(item)}
+                      className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${categoryFilter === item ? 'bg-slate-900 text-white shadow-md' : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                    >
+                      {CATEGORY_LABELS[item]}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="max-h-[400px] space-y-3 overflow-y-auto pr-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar]:w-2">
+                  {mergedTemplates.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      onClick={() => selectTemplate(tpl.id)}
+                      className={`w-full rounded-2xl border p-5 text-left transition-all duration-300 ${selectedTemplateId === tpl.id ? 'border-fuchsia-500 bg-fuchsia-50/50 shadow-md ring-1 ring-fuchsia-500/20' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold uppercase tracking-wider text-fuchsia-600/70">{CATEGORY_LABELS[tpl.cat]}</div>
+                        <div className="text-xs font-medium text-slate-400">{tpl.time}</div>
+                      </div>
+                      <div className="mt-2 text-base font-bold text-slate-900">{tpl.backend?.subject ?? 'Suggested subject'}</div>
+                      <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">{tpl.text}</p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+            </div>
+
+            <aside className="space-y-6">
+              <section className="sticky top-6 rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-xl backdrop-blur-xl sm:p-8">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900">Compose Message</h2>
+                </div>
+                
+                <div className="space-y-5">
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Campaign Name</span>
+                    <input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
+                  </label>
+                  
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Subject</span>
+                    <input value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
+                  </label>
+                  
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Message Body</span>
+                    <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-colors focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar]:w-2" placeholder="Type your message here..." />
+                    <span className="mt-1.5 block text-xs font-medium text-slate-500">Variables: {'{name}, {bottle}, {remaining}'}</span>
+                  </label>
+                  
+                  <div className="relative overflow-hidden rounded-2xl bg-slate-900 p-5 shadow-inner">
+                    <div className="absolute right-0 top-0 h-16 w-16 -translate-y-8 translate-x-8 rounded-full bg-indigo-500/20 blur-xl"></div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Preview</div>
+                    <p className="relative z-10 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-100">{preview || 'Your preview will appear here.'}</p>
+                  </div>
+                  
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Best Send Time</span>
+                    <input value={sendTime} onChange={(e) => setSendTime(e.target.value)} className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" placeholder="e.g. Friday 5 PM" />
+                  </label>
+                  
+                  <div>
+                    <div className="mb-2 text-sm font-semibold text-slate-700">Channels</div>
+                    <div className="flex gap-4">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 transition-colors hover:bg-slate-50">
+                        <input type="checkbox" checked={pushChecked} onChange={(e) => setPushChecked(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" />
+                        <span className="text-sm font-medium text-slate-700">Push</span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 transition-colors hover:bg-slate-50">
+                        <input type="checkbox" checked={whatsAppChecked} onChange={(e) => setWhatsAppChecked(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500" />
+                        <span className="text-sm font-medium text-slate-700">WhatsApp</span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3 rounded-xl bg-slate-100 p-1.5">
+                    <button onClick={() => setScheduleMode('now')} className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${scheduleMode === 'now' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>Send Now</button>
+                    <button onClick={() => setScheduleMode('schedule')} className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${scheduleMode === 'schedule' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>Schedule</button>
+                  </div>
+                  
+                  <button
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={!canSend()}
+                    className="mt-2 w-full rounded-xl bg-indigo-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-600/20 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                  >
+                    Review send to {selectedCount} users
+                  </button>
+                  
+                  <div className="text-center">
+                    {!segment && <p className="text-xs font-medium text-rose-500">Select a segment to enable send.</p>}
+                    {segment && !body.trim() && <p className="text-xs font-medium text-rose-500">Pick a template or write a message.</p>}
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
+              </section>
+            </aside>
+          </div>
 
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Flow rules</div>
-              <div className="space-y-3 text-sm">
-                {[
-                  'Max 1 notification/week during win-back',
-                  'Always personalize with {name}',
-                  'Never offer discount on Day 14 - curiosity only',
-                  'No sends during Day 31-44 silence window',
-                  'Day 60+ -> mark as churned, stop flow',
-                ].map((rule, idx) => (
-                  <div key={rule} className="flex items-start gap-2 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-                    <span className={idx === 2 || idx === 3 ? 'text-rose-600' : idx === 4 ? 'text-amber-600' : 'text-emerald-600'}>•</span>
-                    <span className="text-slate-700">{rule}</span>
+            <div className="grid gap-8 xl:grid-cols-[2fr_1fr]">
+              <section className="flex flex-col rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8">
+                <h3 className="mb-6 text-base font-bold text-slate-900">Recent Campaigns</h3>
+                {campaigns.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                    <div className="text-sm font-medium text-slate-500">No campaigns sent yet</div>
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-6 py-4">Name</th>
+                          <th className="px-6 py-4">Date</th>
+                          <th className="px-6 py-4">Segment</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4 text-right">Recipients</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {campaigns.map((c) => (
+                          <tr key={c.id} className="transition-colors hover:bg-slate-50/50">
+                            <td className="px-6 py-4 font-medium text-slate-900">{c.name}</td>
+                            <td className="px-6 py-4 text-slate-600">
+                              {new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </td>
+                            <td className="px-6 py-4 text-slate-600">{c.segment}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${c.status === 'Sent' ? 'bg-emerald-100 text-emerald-800' : c.status === 'Scheduled' ? 'bg-indigo-100 text-indigo-800' : c.status === 'Failed' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-800'}`}>
+                                {c.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-medium tabular-nums text-slate-900">{c.totalRecipients}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              <section className="flex flex-col rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8">
+                <h3 className="mb-6 text-base font-bold text-slate-900">Quota Summary</h3>
+                {quotaSummary.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                    <div className="text-sm font-medium text-slate-500">No quota data yet</div>
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-6 py-4">User</th>
+                          <th className="px-6 py-4 text-right">Sent / Limit</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {quotaSummary.map((row) => (
+                          <tr key={row.userId} className="transition-colors hover:bg-slate-50/50">
+                            <td className="px-6 py-4 font-medium text-slate-900">{row.fullName ?? `User ${row.userId}`}</td>
+                            <td className="px-6 py-4 text-right">
+                              <span className="font-medium text-slate-900">{row.sentCount}</span>
+                              <span className="text-slate-400"> / {row.limitCount}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'winback' && (
+          <div className="grid gap-8 xl:grid-cols-[1fr_360px]">
+            <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8">
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-slate-900">Dormant User Win-back Flow</h2>
+                <p className="mt-2 text-slate-600">This structured flow recovers users without spamming.</p>
+              </div>
+              <div className="relative space-y-8 before:absolute before:inset-y-0 before:left-[1.35rem] before:w-0.5 before:bg-slate-100">
+                {WIN_BACK.map((step, index) => (
+                  <div key={step.days} className="relative flex gap-6">
+                    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-4 border-white text-sm font-bold shadow-sm ${step.cls === 'pause' ? 'bg-amber-100 text-amber-700' : step.cls === 'stop' ? 'bg-rose-100 text-rose-700' : 'bg-slate-900 text-white'}`}>
+                      {step.step}
+                    </div>
+                    <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+                      <div className="flex items-center justify-between">
+                        <div className="font-bold text-slate-900">{step.days} - {step.type}</div>
+                        <div className="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{step.time}</div>
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-slate-500">{step.why}</div>
+                      <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm font-medium italic text-slate-700">"{step.msg}"</div>
+                    </div>
                   </div>
                 ))}
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Required data</div>
-              <div className="space-y-3 text-sm text-slate-700">
-                {['Last visit timestamp', 'User first name', 'Visit history count', 'Win-back step flag (current step)', 'Notification send log (anti-spam)'].map((item) => (
-                  <div key={item} className="border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">{item}</div>
+            <div className="space-y-6">
+              <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">Flow Rules</h3>
+                <div className="space-y-3">
+                  {[
+                    { text: 'Max 1 notification/week during win-back', type: 'good' },
+                    { text: 'Always personalize with {name}', type: 'good' },
+                    { text: 'Never offer discount on Day 14 - curiosity only', type: 'bad' },
+                    { text: 'No sends during Day 31-44 silence window', type: 'bad' },
+                    { text: 'Day 60+ -> mark as churned, stop flow', type: 'warn' },
+                  ].map((rule, idx) => (
+                    <div key={idx} className="flex gap-3 rounded-xl border border-slate-100 bg-white p-3">
+                      <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${rule.type === 'good' ? 'bg-emerald-100 text-emerald-600' : rule.type === 'bad' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-current"></div>
+                      </div>
+                      <span className="text-sm font-medium text-slate-700">{rule.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">Required Data</h3>
+                <div className="space-y-2">
+                  {['Last visit timestamp', 'User first name', 'Visit history count', 'Win-back step flag', 'Notification send log'].map((item) => (
+                    <div key={item} className="rounded-xl bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700">{item}</div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'rules' && (
+          <div className="grid gap-8 xl:grid-cols-[1fr_400px]">
+            <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8">
+              <h2 className="mb-6 text-2xl font-bold text-slate-900">Golden Rules</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {RULES.map((rule) => (
+                  <div key={rule.title} className={`rounded-2xl border p-5 transition-shadow hover:shadow-md ${rule.good ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/30'}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`flex h-6 w-6 items-center justify-center rounded-full ${rule.good ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                        {rule.good ? (
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        ) : (
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                        )}
+                      </div>
+                      <div className="font-bold text-slate-900">{rule.title}</div>
+                    </div>
+                    <div className="mt-2 pl-8 text-sm font-medium text-slate-600">{rule.body}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+            
+            <section className="rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl">
+              <h3 className="mb-6 text-sm font-bold uppercase tracking-wider text-slate-500">Backend Implementation Checklist</h3>
+              <div className="space-y-3">
+                {CHECKLIST.map((item) => (
+                  <div key={item.what} className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-bold text-slate-900">{item.what}</div>
+                        <div className="mt-1 text-sm font-medium text-slate-500">{item.why}</div>
+                      </div>
+                      <span className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${item.pri === 'crit' ? 'bg-rose-100 text-rose-700' : item.pri === 'high' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'}`}>
+                        {item.pri === 'crit' ? 'Critical' : item.pri === 'high' ? 'High' : 'Medium'}
+                      </span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </section>
           </div>
-        </div>
-      )}
-
-      {activeTab === 'rules' && (
-        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Golden rules</div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {RULES.map((rule) => (
-                <div key={rule.title} className={`rounded-2xl border p-4 ${rule.good ? 'border-emerald-200' : 'border-rose-200'}`}>
-                  <div className="font-medium text-slate-900">{rule.title}</div>
-                  <div className="mt-1 text-sm text-slate-600">{rule.body}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Backend implementation checklist</div>
-            <div className="space-y-3">
-              {CHECKLIST.map((item) => (
-                <div key={item.what} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 p-4">
-                  <div>
-                    <div className="font-medium text-slate-900">{item.what}</div>
-                    <div className="mt-1 text-sm text-slate-600">{item.why}</div>
-                  </div>
-                  <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${item.pri === 'crit' ? 'bg-rose-100 text-rose-700' : item.pri === 'high' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'}`}>
-                    {item.pri === 'crit' ? 'Critical' : item.pri === 'high' ? 'High' : 'Medium'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-      )}
+        )}
+      </div>
 
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold">Confirm send</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              You are about to send to {selectedCount} users via {pushChecked && whatsAppChecked ? 'Push + WhatsApp' : pushChecked ? 'Push' : 'WhatsApp'}.
-              {scheduleMode === 'schedule' ? ' This will be scheduled.' : ' This will send immediately.'}
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => setConfirmOpen(false)} className="rounded-xl border px-4 py-2">Cancel</button>
-              <button onClick={handleSend} className="rounded-xl bg-slate-900 px-4 py-2 text-white">Confirm</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="bg-indigo-600 px-6 py-4">
+              <h3 className="text-lg font-bold text-white">Confirm Campaign Send</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-base font-medium text-slate-600">
+                You are about to send to <strong className="text-slate-900">{selectedCount} users</strong> via <strong className="text-slate-900">{pushChecked && whatsAppChecked ? 'Push + WhatsApp' : pushChecked ? 'Push' : 'WhatsApp'}</strong>.
+              </p>
+              <div className="mt-4 rounded-xl bg-slate-50 p-4">
+                <div className="text-sm font-bold text-slate-900">{subject}</div>
+                <div className="mt-1 text-sm text-slate-600">{body}</div>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-amber-600">
+                {scheduleMode === 'schedule' ? ` This campaign will be scheduled for ${sendTime || 'the specified time'}.` : ' This campaign will be sent immediately.'}
+              </p>
+              <div className="mt-8 flex justify-end gap-3">
+                <button onClick={() => setConfirmOpen(false)} className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100">Cancel</button>
+                <button onClick={handleSend} className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-600/20 transition-colors hover:bg-indigo-700">Confirm Send</button>
+              </div>
             </div>
           </div>
         </div>
